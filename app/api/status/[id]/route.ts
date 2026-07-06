@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOrder } from "@/lib/db";
+import { getOrder, getEventById, initDb } from "@/lib/db";
 import { getPayment, isPaidStatus } from "@/lib/asaas";
 import { markOrderPaid } from "@/lib/ticket";
 
 export const runtime = "nodejs";
 
-// Consultado por polling na página do pedido.
-// Além de ler o status local, reconcilia com o Asaas — assim funciona mesmo
-// que o webhook ainda não tenha chegado (ou não esteja configurado em dev).
+// Polling da página do pedido: lê o status local e reconcilia com o Asaas
+// (usando a chave do evento) caso o webhook ainda não tenha chegado.
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  await initDb();
   const { id } = await params;
   let order = await getOrder(id);
   if (!order) {
@@ -20,12 +20,17 @@ export async function GET(
 
   if (order.status === "PENDING" && order.asaas_payment_id) {
     try {
-      const payment = await getPayment(order.asaas_payment_id);
-      if (isPaidStatus(payment.status)) {
-        order = (await markOrderPaid(order.id)) ?? order;
+      const event = await getEventById(order.event_id);
+      if (event?.asaas_api_key) {
+        const payment = await getPayment(
+          { apiKey: event.asaas_api_key, env: event.asaas_env },
+          order.asaas_payment_id
+        );
+        if (isPaidStatus(payment.status)) {
+          order = (await markOrderPaid(order.id)) ?? order;
+        }
       }
     } catch (err) {
-      // Se a consulta ao Asaas falhar, apenas seguimos com o status local.
       console.error("[status] reconcile", err);
     }
   }

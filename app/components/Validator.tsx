@@ -10,7 +10,7 @@ type Result = {
   checkedInAt?: string | null;
 };
 
-export default function Validator() {
+export default function Validator({ eventId }: { eventId: string }) {
   const [manual, setManual] = useState("");
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(false);
@@ -28,7 +28,7 @@ export default function Validator() {
       const res = await fetch("/api/admin/checkin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token, eventId }),
       });
       const data = await res.json();
       setResult(data);
@@ -48,7 +48,6 @@ export default function Validator() {
   async function startScan() {
     setScanError("");
     setResult(null);
-    // BarcodeDetector é nativo no Chrome/Android.
     const Detector = (window as unknown as { BarcodeDetector?: any }).BarcodeDetector;
     if (!Detector) {
       setScanError(

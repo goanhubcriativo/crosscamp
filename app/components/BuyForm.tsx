@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function BuyForm() {
+export default function BuyForm({ eventSlug }: { eventSlug: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -20,7 +20,7 @@ export default function BuyForm() {
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, eventSlug }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Erro ao gerar cobrança.");
@@ -37,13 +37,7 @@ export default function BuyForm() {
       <input id="name" value={form.name} onChange={set("name")} required />
 
       <label htmlFor="email">E-mail</label>
-      <input
-        id="email"
-        type="email"
-        value={form.email}
-        onChange={set("email")}
-        required
-      />
+      <input id="email" type="email" value={form.email} onChange={set("email")} required />
 
       <label htmlFor="cpf">CPF</label>
       <input

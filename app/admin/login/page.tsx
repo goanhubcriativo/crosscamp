@@ -9,8 +9,8 @@ export default async function LoginPage() {
   return (
     <div className="container">
       <div className="card">
-        <h1>Área do organizador</h1>
-        <p className="muted">Entre para ver a lista de compradores.</p>
+        <h1>CrossCamp · Admin</h1>
+        <p className="muted">Entre para gerenciar seus eventos.</p>
         <LoginForm />
       </div>
     </div>

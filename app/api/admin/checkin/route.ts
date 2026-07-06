@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated } from "@/lib/auth";
-import { checkInByToken } from "@/lib/ticket";
-import { initDb } from "@/lib/db";
+import { registerEntry } from "@/lib/ticket";
+import { initDb, getOrderByToken } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -13,6 +13,7 @@ export async function POST(req: NextRequest) {
   await initDb();
 
   const body = await req.json().catch(() => ({}));
+  const eventId = String(body.eventId ?? "").trim();
   let token = String(body.token ?? "").trim();
 
   // Aceita tanto o token puro quanto uma URL /ingresso/<token>.
@@ -23,15 +24,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Token vazio." }, { status: 400 });
   }
 
-  const result = await checkInByToken(token);
-  if (!result) {
+  const order = await getOrderByToken(token);
+  if (!order) {
     return NextResponse.json(
       { valid: false, reason: "Ingresso não encontrado." },
       { status: 404 }
     );
   }
 
-  const { order, alreadyChecked } = result;
+  // Confere ANTES de registrar, para não consumir ingresso de outro evento.
+  if (eventId && order.event_id !== eventId) {
+    return NextResponse.json({
+      valid: false,
+      reason: "Este ingresso é de outro evento.",
+      name: order.name,
+    });
+  }
   if (order.status !== "PAID") {
     return NextResponse.json({
       valid: false,
@@ -40,10 +48,19 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  if (order.checked_in) {
+    return NextResponse.json({
+      valid: true,
+      alreadyChecked: true,
+      name: order.name,
+      checkedInAt: order.checked_in_at,
+    });
+  }
+
+  await registerEntry(order.id);
   return NextResponse.json({
     valid: true,
-    alreadyChecked,
+    alreadyChecked: false,
     name: order.name,
-    checkedInAt: order.checked_in_at,
   });
 }

@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { config } from "@/lib/config";
-import { db, initDb } from "@/lib/db";
+import { db, initDb, getEventBySlug } from "@/lib/db";
 import { newId } from "@/lib/ticket";
-import {
-  createCustomer,
-  createPixPayment,
-  getPixQrCode,
-} from "@/lib/asaas";
+import { createCustomer, createPixPayment, getPixQrCode } from "@/lib/asaas";
 
 export const runtime = "nodejs";
 
-// Remove tudo que não for dígito.
 const onlyDigits = (s: string) => s.replace(/\D/g, "");
 
-// Validação simples de CPF (11 dígitos + dígitos verificadores).
 function isValidCpf(cpf: string): boolean {
   cpf = onlyDigits(cpf);
   if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
@@ -32,11 +25,22 @@ export async function POST(req: NextRequest) {
   try {
     await initDb();
     const body = await req.json();
+    const eventSlug = String(body.eventSlug ?? "").trim();
     const name = String(body.name ?? "").trim();
     const email = String(body.email ?? "").trim();
     const phone = onlyDigits(String(body.phone ?? ""));
     const cpf = onlyDigits(String(body.cpf ?? ""));
 
+    const event = eventSlug ? await getEventBySlug(eventSlug) : null;
+    if (!event || !event.published) {
+      return NextResponse.json({ error: "Evento indisponível." }, { status: 404 });
+    }
+    if (!event.asaas_api_key) {
+      return NextResponse.json(
+        { error: "Este evento ainda não está com o pagamento configurado." },
+        { status: 400 }
+      );
+    }
     if (name.length < 2) {
       return NextResponse.json({ error: "Informe seu nome." }, { status: 400 });
     }
@@ -47,41 +51,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "CPF inválido." }, { status: 400 });
     }
 
+    const creds = { apiKey: event.asaas_api_key, env: event.asaas_env };
     const orderId = newId();
 
-    // 1) Cliente no Asaas
-    const customer = await createCustomer({
+    const customer = await createCustomer(creds, {
       name,
       email,
       cpfCnpj: cpf,
       mobilePhone: phone || undefined,
     });
 
-    // 2) Cobrança PIX
-    const payment = await createPixPayment({
+    const payment = await createPixPayment(creds, {
       customerId: customer.id,
-      value: config.event.price,
-      description: `Ingresso - ${config.event.name}`,
+      value: event.price,
+      description: `Ingresso - ${event.name}`,
       externalReference: orderId,
     });
 
-    // 3) QR + copia e cola
-    const qr = await getPixQrCode(payment.id);
+    const qr = await getPixQrCode(creds, payment.id);
 
-    // 4) Persistir pedido PENDING
     const now = new Date().toISOString();
     await db().execute({
       sql: `INSERT INTO orders
-              (id, name, email, phone, cpf, amount, status,
+              (id, event_id, name, email, phone, cpf, amount, status,
                asaas_customer_id, asaas_payment_id, pix_payload, pix_qr_image, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, ?, ?, ?)`,
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, ?, ?, ?)`,
       args: [
         orderId,
+        event.id,
         name,
         email,
         phone || null,
         cpf,
-        config.event.price,
+        event.price,
         customer.id,
         payment.id,
         qr.payload,

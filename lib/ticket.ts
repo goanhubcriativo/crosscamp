@@ -31,29 +31,11 @@ export async function markOrderPaid(orderId: string): Promise<Order | null> {
   return getOrder(orderId);
 }
 
-// Registra a entrada (check-in) de um ingresso pelo token.
-// Retorna { order, alreadyChecked } ou null se token inválido.
-export async function checkInByToken(
-  token: string
-): Promise<{ order: Order; alreadyChecked: boolean } | null> {
-  const r = await db().execute({
-    sql: "SELECT * FROM orders WHERE ticket_token = ?",
-    args: [token],
-  });
-  if (!r.rows.length) return null;
-  const order = r.rows[0] as unknown as Order;
-
-  if (order.status !== "PAID") {
-    return { order, alreadyChecked: false };
-  }
-  if (order.checked_in) {
-    return { order, alreadyChecked: true };
-  }
-
+// Marca a entrada de um pedido já pago. Idempotente.
+export async function registerEntry(orderId: string): Promise<void> {
   const now = new Date().toISOString();
   await db().execute({
-    sql: "UPDATE orders SET checked_in = 1, checked_in_at = ? WHERE id = ?",
-    args: [now, order.id],
+    sql: "UPDATE orders SET checked_in = 1, checked_in_at = ? WHERE id = ? AND checked_in = 0",
+    args: [now, orderId],
   });
-  return { order: { ...order, checked_in: 1, checked_in_at: now }, alreadyChecked: false };
 }

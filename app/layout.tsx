@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import { config } from "@/lib/config";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: `Ingressos - ${config.event.name}`,
-  description: config.event.description || "Compra de ingressos",
+  title: "CrossCamp",
+  description: "Plataforma de venda de ingressos para eventos.",
 };
 
 export default function RootLayout({

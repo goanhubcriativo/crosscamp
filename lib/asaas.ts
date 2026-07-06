@@ -1,7 +1,11 @@
-import { config } from "./config";
-
 // Wrapper mínimo da API do Asaas para cobranças PIX.
+// Cada evento tem suas próprias credenciais (chave + ambiente).
 // Docs: https://docs.asaas.com/
+
+export type AsaasCreds = {
+  apiKey: string;
+  env: "sandbox" | "production";
+};
 
 type AsaasCustomer = { id: string };
 type AsaasPayment = { id: string; status: string; invoiceUrl?: string };
@@ -12,15 +16,25 @@ type AsaasPixQr = {
   expirationDate?: string;
 };
 
+function baseUrl(env: "sandbox" | "production"): string {
+  return env === "production"
+    ? "https://api.asaas.com/v3"
+    : "https://sandbox.asaas.com/api/v3";
+}
+
 type FetchOpts = Omit<RequestInit, "body"> & { body?: unknown };
 
-async function asaasFetch<T>(path: string, init?: FetchOpts): Promise<T> {
+async function asaasFetch<T>(
+  creds: AsaasCreds,
+  path: string,
+  init?: FetchOpts
+): Promise<T> {
   const { body, ...rest } = init ?? {};
-  const res = await fetch(`${config.asaas.baseUrl}${path}`, {
+  const res = await fetch(`${baseUrl(creds.env)}${path}`, {
     ...rest,
     headers: {
       "Content-Type": "application/json",
-      access_token: config.asaas.apiKey,
+      access_token: creds.apiKey,
       ...(rest.headers ?? {}),
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -38,13 +52,11 @@ async function asaasFetch<T>(path: string, init?: FetchOpts): Promise<T> {
   return data as T;
 }
 
-export async function createCustomer(input: {
-  name: string;
-  email: string;
-  cpfCnpj: string;
-  mobilePhone?: string;
-}): Promise<AsaasCustomer> {
-  return asaasFetch<AsaasCustomer>("/customers", {
+export async function createCustomer(
+  creds: AsaasCreds,
+  input: { name: string; email: string; cpfCnpj: string; mobilePhone?: string }
+): Promise<AsaasCustomer> {
+  return asaasFetch<AsaasCustomer>(creds, "/customers", {
     method: "POST",
     body: {
       name: input.name,
@@ -55,15 +67,17 @@ export async function createCustomer(input: {
   });
 }
 
-export async function createPixPayment(input: {
-  customerId: string;
-  value: number;
-  description: string;
-  externalReference: string;
-}): Promise<AsaasPayment> {
-  // dueDate = hoje (a cobrança PIX pode ser paga na hora)
+export async function createPixPayment(
+  creds: AsaasCreds,
+  input: {
+    customerId: string;
+    value: number;
+    description: string;
+    externalReference: string;
+  }
+): Promise<AsaasPayment> {
   const today = new Date().toISOString().slice(0, 10);
-  return asaasFetch<AsaasPayment>("/payments", {
+  return asaasFetch<AsaasPayment>(creds, "/payments", {
     method: "POST",
     body: {
       customer: input.customerId,
@@ -76,17 +90,28 @@ export async function createPixPayment(input: {
   });
 }
 
-export async function getPixQrCode(paymentId: string): Promise<AsaasPixQr> {
-  return asaasFetch<AsaasPixQr>(`/payments/${paymentId}/pixQrCode`, {
+export async function getPixQrCode(
+  creds: AsaasCreds,
+  paymentId: string
+): Promise<AsaasPixQr> {
+  return asaasFetch<AsaasPixQr>(creds, `/payments/${paymentId}/pixQrCode`, {
     method: "GET",
   });
 }
 
-export async function getPayment(paymentId: string): Promise<AsaasPayment> {
-  return asaasFetch<AsaasPayment>(`/payments/${paymentId}`, { method: "GET" });
+export async function getPayment(
+  creds: AsaasCreds,
+  paymentId: string
+): Promise<AsaasPayment> {
+  return asaasFetch<AsaasPayment>(creds, `/payments/${paymentId}`, {
+    method: "GET",
+  });
 }
 
-// Status do Asaas que significam "pago".
 export function isPaidStatus(status: string): boolean {
-  return status === "RECEIVED" || status === "CONFIRMED" || status === "RECEIVED_IN_CASH";
+  return (
+    status === "RECEIVED" ||
+    status === "CONFIRMED" ||
+    status === "RECEIVED_IN_CASH"
+  );
 }

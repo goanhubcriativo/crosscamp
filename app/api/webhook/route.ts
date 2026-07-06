@@ -6,14 +6,14 @@ import { markOrderPaid } from "@/lib/ticket";
 
 export const runtime = "nodejs";
 
-// Webhook do Asaas. Configure no painel do Asaas apontando para:
-//   {APP_URL}/api/webhook
-// e defina o mesmo token secreto (ASAAS_WEBHOOK_TOKEN) no cabeçalho de autenticação.
+// Webhook do Asaas (mesma URL para todos os eventos).
+// Configure em cada conta Asaas: {APP_URL}/api/webhook, com o token de
+// autenticação igual ao ASAAS_WEBHOOK_TOKEN. O pedido é localizado pelo
+// id do pagamento, então descobrimos o evento a partir dele.
 export async function POST(req: NextRequest) {
-  // Autenticação por token compartilhado (se configurado).
-  if (config.asaas.webhookToken) {
+  if (config.asaasWebhookToken) {
     const received = req.headers.get("asaas-access-token");
-    if (received !== config.asaas.webhookToken) {
+    if (received !== config.asaasWebhookToken) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
   }
@@ -23,25 +23,19 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const event: string = body?.event ?? "";
     const payment = body?.payment;
-
-    if (!payment?.id) {
-      return NextResponse.json({ received: true });
-    }
+    if (!payment?.id) return NextResponse.json({ received: true });
 
     const paidByEvent =
       event === "PAYMENT_RECEIVED" || event === "PAYMENT_CONFIRMED";
 
     if (paidByEvent || isPaidStatus(payment.status ?? "")) {
       const order = await getOrderByPaymentId(payment.id);
-      if (order) {
-        await markOrderPaid(order.id);
-      }
+      if (order) await markOrderPaid(order.id);
     }
 
     return NextResponse.json({ received: true });
   } catch (err) {
     console.error("[webhook]", err);
-    // Retorna 200 para o Asaas não ficar reenviando por erro de parse nosso.
     return NextResponse.json({ received: true });
   }
 }

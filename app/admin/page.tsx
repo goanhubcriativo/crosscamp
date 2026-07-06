@@ -1,109 +1,95 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { isAuthenticated } from "@/lib/auth";
-import { initDb, listOrders } from "@/lib/db";
+import { initDb, listEvents, eventStats } from "@/lib/db";
 import { config, formatBRL } from "@/lib/config";
 import AdminHeader from "./AdminHeader";
 
 export const dynamic = "force-dynamic";
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("pt-BR");
-}
-
 export default async function AdminPage() {
   if (!(await isAuthenticated())) redirect("/admin/login");
   await initDb();
-  const orders = await listOrders();
-
-  const paid = orders.filter((o) => o.status === "PAID");
-  const checkedIn = paid.filter((o) => o.checked_in);
-  const revenue = paid.reduce((s, o) => s + o.amount, 0);
+  const events = await listEvents();
+  const stats = await Promise.all(events.map((e) => eventStats(e.id)));
 
   return (
     <div className="container container-wide">
       <AdminHeader />
-      <h1>Compradores</h1>
-      <p className="muted">{config.event.name}</p>
-
-      <div className="row-between" style={{ margin: "20px 0", flexWrap: "wrap" }}>
-        <div className="stat">
-          <div className="muted">Pedidos</div>
-          <div className="n">{orders.length}</div>
+      <div className="row-between" style={{ marginBottom: 20 }}>
+        <div>
+          <h1>Eventos</h1>
+          <p className="muted">Gerencie seus eventos e vendas.</p>
         </div>
-        <div className="stat">
-          <div className="muted">Pagos</div>
-          <div className="n">{paid.length}</div>
-        </div>
-        <div className="stat">
-          <div className="muted">Entradas</div>
-          <div className="n">
-            {checkedIn.length}/{paid.length}
-          </div>
-        </div>
-        <div className="stat">
-          <div className="muted">Arrecadado</div>
-          <div className="n">{formatBRL(revenue)}</div>
-        </div>
+        <Link href="/admin/eventos/novo">
+          <button>+ Novo evento</button>
+        </Link>
       </div>
 
-      <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-        <table>
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>Contato</th>
-              <th>Status</th>
-              <th>Entrada</th>
-              <th>Criado em</th>
-              <th>Pago em</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.length === 0 && (
-              <tr>
-                <td colSpan={6} className="muted center" style={{ padding: 24 }}>
-                  Nenhum pedido ainda.
-                </td>
-              </tr>
-            )}
-            {orders.map((o) => (
-              <tr key={o.id}>
-                <td>
-                  {o.name}
-                  <div className="muted" style={{ fontSize: "0.78rem" }}>
-                    CPF {o.cpf}
+      {events.length === 0 ? (
+        <div className="card center" style={{ padding: 40 }}>
+          <p className="muted">Nenhum evento ainda.</p>
+          <Link href="/admin/eventos/novo">
+            <button style={{ marginTop: 12 }}>Criar o primeiro evento</button>
+          </Link>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 14 }}>
+          {events.map((e, i) => (
+            <div key={e.id} className="card">
+              <div className="row-between" style={{ flexWrap: "wrap", gap: 12 }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <h2 style={{ margin: 0 }}>{e.name}</h2>
+                    {e.published ? (
+                      <span className="badge badge-paid">Publicado</span>
+                    ) : (
+                      <span className="badge badge-pending">Rascunho</span>
+                    )}
                   </div>
-                </td>
-                <td>
-                  {o.email}
-                  {o.phone && (
-                    <div className="muted" style={{ fontSize: "0.78rem" }}>
-                      {o.phone}
-                    </div>
-                  )}
-                </td>
-                <td>
-                  {o.status === "PAID" ? (
-                    <span className="badge badge-paid">Pago</span>
-                  ) : (
-                    <span className="badge badge-pending">Pendente</span>
-                  )}
-                </td>
-                <td>
-                  {o.checked_in ? (
-                    <span className="badge badge-in">✓ Entrou</span>
-                  ) : (
-                    <span className="muted">—</span>
-                  )}
-                </td>
-                <td className="muted">{fmtDate(o.created_at)}</td>
-                <td className="muted">{fmtDate(o.paid_at)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  <div className="muted" style={{ fontSize: "0.85rem", marginTop: 4 }}>
+                    <a href={`${config.appUrl}/${e.slug}`} target="_blank" rel="noreferrer">
+                      /{e.slug}
+                    </a>{" "}
+                    · {formatBRL(e.price)}
+                    {!e.asaas_api_key && " · ⚠️ sem chave Asaas"}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Link href={`/admin/eventos/${e.id}/compradores`}>
+                    <button className="btn-ghost">Compradores</button>
+                  </Link>
+                  <Link href={`/admin/eventos/${e.id}/validar`}>
+                    <button className="btn-ghost">Validar</button>
+                  </Link>
+                  <Link href={`/admin/eventos/${e.id}`}>
+                    <button className="btn-ghost">Editar</button>
+                  </Link>
+                </div>
+              </div>
+              <div
+                className="row-between"
+                style={{ marginTop: 14, flexWrap: "wrap", gap: 10 }}
+              >
+                <div className="stat">
+                  <div className="muted">Pagos</div>
+                  <div className="n">{stats[i].paid}</div>
+                </div>
+                <div className="stat">
+                  <div className="muted">Entradas</div>
+                  <div className="n">
+                    {stats[i].checkedIn}/{stats[i].paid}
+                  </div>
+                </div>
+                <div className="stat">
+                  <div className="muted">Arrecadado</div>
+                  <div className="n">{formatBRL(stats[i].revenue)}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

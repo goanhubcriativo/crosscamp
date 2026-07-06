@@ -230,3 +230,139 @@ th {
     transform: rotate(360deg);
   }
 }
+
+/* ---------- Tema por evento ---------- */
+/* Superfícies derivadas das cores do evento (funcionam em fundo claro ou escuro). */
+.event-theme .card {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border-color: color-mix(in srgb, var(--text) 16%, transparent);
+}
+
+.event-theme .muted {
+  color: color-mix(in srgb, var(--text) 62%, transparent);
+}
+
+.event-theme input,
+.event-theme .copia {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  border-color: color-mix(in srgb, var(--text) 20%, transparent);
+  color: var(--text);
+}
+
+.event-theme button {
+  color: var(--bg);
+}
+
+.event-theme .btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--text) 24%, transparent);
+}
+
+.event-theme .price {
+  color: var(--brand-2);
+}
+
+.event-theme hr {
+  border-color: color-mix(in srgb, var(--text) 16%, transparent) !important;
+}
+
+.event-logo {
+  max-height: 72px;
+  max-width: 80%;
+  width: auto;
+  margin: 0 auto 8px;
+  display: block;
+}
+
+/* ---------- Página "em breve" (raiz CrossCamp) ---------- */
+.soon {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  background: #000;
+  overflow: hidden;
+  text-align: center;
+  padding: 24px;
+}
+
+/* Manchas de cor borradas ao fundo */
+.soon::before,
+.soon::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.55;
+  z-index: 0;
+  animation: float 14s ease-in-out infinite alternate;
+}
+
+.soon::before {
+  width: 46vw;
+  height: 46vw;
+  background: #7d3bee;
+  top: -8vw;
+  left: -6vw;
+}
+
+.soon::after {
+  width: 42vw;
+  height: 42vw;
+  background: #c6fe33;
+  bottom: -10vw;
+  right: -6vw;
+  animation-delay: -7s;
+}
+
+@keyframes float {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(4vw, 3vw) scale(1.12);
+  }
+}
+
+.soon-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  padding: 44px 40px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  max-width: 520px;
+}
+
+.soon-logo {
+  width: min(340px, 72vw);
+  height: auto;
+}
+
+.soon-tag {
+  display: inline-block;
+  font-size: 0.8rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: #c6fe33;
+  border: 1px solid rgba(198, 254, 51, 0.4);
+  border-radius: 999px;
+  padding: 7px 18px;
+}
+
+.soon-text {
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.98rem;
+  max-width: 340px;
+  margin: 0;
+}

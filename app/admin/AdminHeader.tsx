@@ -13,11 +13,10 @@ export default function AdminHeader() {
   }
 
   return (
-    <div className="row-between" style={{ marginBottom: 20 }}>
-      <div style={{ display: "flex", gap: 16 }}>
-        <Link href="/admin">Compradores</Link>
-        <Link href="/admin/validar">Validar entrada</Link>
-      </div>
+    <div className="row-between" style={{ marginBottom: 24 }}>
+      <Link href="/admin" style={{ fontWeight: 700, textDecoration: "none" }}>
+        CrossCamp · Admin
+      </Link>
       <button className="btn-ghost" onClick={logout}>
         Sair
       </button>
