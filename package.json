@@ -1,0 +1,26 @@
+{
+  "name": "ingressos-pix",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "db:init": "tsx scripts/init-db.ts"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.15.4",
+    "next": "^15.3.1",
+    "qrcode": "^1.5.4",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}
