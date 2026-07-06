@@ -7,9 +7,6 @@ export default function HomePage() {
       <div className="soon-inner">
         <CrossCampLogo className="soon-logo" />
         <span className="soon-tag">Em breve</span>
-        <p className="soon-text">
-          A plataforma de ingressos do CrossCamp está chegando.
-        </p>
       </div>
     </main>
   );
