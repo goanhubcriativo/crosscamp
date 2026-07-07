@@ -6,6 +6,7 @@ import { formatBRL } from "@/lib/config";
 import EventTheme from "../components/EventTheme";
 import BuyForm from "../components/BuyForm";
 import CrossCampLogo from "../components/CrossCampLogo";
+import { Icon } from "../components/Icon";
 
 export const dynamic = "force-dynamic";
 
@@ -86,10 +87,14 @@ export default async function EventPage({
             )}
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", margin: "16px 0" }}>
               {event.event_date && (
-                <span className="kicker kicker--muted">📅 {event.event_date}</span>
+                <span className="kicker kicker--muted">
+                  <Icon name="calendar" size={14} /> {event.event_date}
+                </span>
               )}
               {event.location && (
-                <span className="kicker kicker--muted">📍 {event.location}</span>
+                <span className="kicker kicker--muted">
+                  <Icon name="pin" size={14} /> {event.location}
+                </span>
               )}
             </div>
             <span className="kicker kicker--muted">A partir de</span>

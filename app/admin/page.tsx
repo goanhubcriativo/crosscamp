@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { initDb, listEvents, eventStats, type EventRow } from "@/lib/db";
 import { config, formatBRL } from "@/lib/config";
 import AdminHeader from "./AdminHeader";
+import { Icon } from "../components/Icon";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,9 @@ export default async function AdminPage() {
       <div className="container">
         <AdminHeader />
         <div className="card center" style={{ padding: 40 }}>
-          <div style={{ fontSize: "2rem" }}>🗄️</div>
+          <div style={{ color: "var(--muted)" }}>
+            <Icon name="database" size={40} />
+          </div>
           <h1>Banco de dados não conectado</h1>
           <p className="muted">
             O painel precisa de um banco para salvar eventos e vendas. Assim que
@@ -83,7 +86,12 @@ export default async function AdminPage() {
                       /{e.slug}
                     </a>{" "}
                     · {formatBRL(e.price)}
-                    {!e.asaas_api_key && " · ⚠️ sem chave Asaas"}
+                    {!e.asaas_api_key && (
+                      <>
+                        {" · "}
+                        <Icon name="warn" size={12} /> sem chave Asaas
+                      </>
+                    )}
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>

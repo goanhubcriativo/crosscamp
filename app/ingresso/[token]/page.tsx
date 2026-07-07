@@ -7,6 +7,7 @@ import {
   initDb,
 } from "@/lib/db";
 import EventTheme from "../../components/EventTheme";
+import { Icon } from "../../components/Icon";
 
 export const dynamic = "force-dynamic";
 
@@ -38,13 +39,17 @@ export default async function IngressoPage({
           <img className="event-logo" src={event.logo} alt={event.name} style={{ margin: "16px 0" }} />
         )}
         <div className="badge badge-paid" style={{ marginTop: 8 }}>
-          ✓ Pagamento confirmado
+          <Icon name="check" size={13} /> Pagamento confirmado
         </div>
         <h1 style={{ marginTop: 10 }}>{event.name}</h1>
         <p className="muted">
           {order.name}
-          {event.event_date && <> · 📅 {event.event_date}</>}
-          {event.location && <> · 📍 {event.location}</>}
+          {event.event_date && (
+            <> · <Icon name="calendar" size={13} /> {event.event_date}</>
+          )}
+          {event.location && (
+            <> · <Icon name="pin" size={13} /> {event.location}</>
+          )}
         </p>
         <p className="muted" style={{ fontSize: "0.85rem" }}>
           {tickets.length === 1
@@ -80,8 +85,9 @@ export default async function IngressoPage({
         </div>
 
         <p className="muted" style={{ marginTop: 18, fontSize: "0.85rem" }}>
-          💡 Salve o link desta página ou tire um print. Você também pode recuperar
-          seu ingresso depois em <strong>/ingresso</strong> com seu CPF e e-mail.
+          <Icon name="info" size={14} /> Salve o link desta página ou tire um print.
+          Você também pode recuperar seu ingresso depois em <strong>/ingresso</strong>{" "}
+          com seu CPF e e-mail.
         </p>
       </div>
     </EventTheme>

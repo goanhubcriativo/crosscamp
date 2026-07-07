@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Icon } from "./Icon";
 
 type Result = {
   valid: boolean;
@@ -97,8 +98,12 @@ export default function Validator({ eventId }: { eventId: string }) {
     <div>
       <div className="card" style={{ marginTop: 16 }}>
         {!scanning ? (
-          <button className="btn-block" onClick={startScan} style={{ marginTop: 0 }}>
-            📷 Escanear QR Code
+          <button
+            className="btn-block"
+            onClick={startScan}
+            style={{ marginTop: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+          >
+            <Icon name="camera" size={16} /> Escanear QR Code
           </button>
         ) : (
           <>
@@ -146,7 +151,9 @@ export default function Validator({ eventId }: { eventId: string }) {
           {result.valid ? (
             result.alreadyChecked ? (
               <>
-                <div style={{ fontSize: "2rem" }}>⚠️</div>
+                <div style={{ color: "var(--warn)" }}>
+                  <Icon name="warn" size={44} />
+                </div>
                 <h2 style={{ color: "var(--warn)" }}>Entrada já registrada</h2>
                 <p style={{ fontWeight: 600 }}>{result.name}</p>
                 {result.checkedInAt && (
@@ -157,14 +164,18 @@ export default function Validator({ eventId }: { eventId: string }) {
               </>
             ) : (
               <>
-                <div style={{ fontSize: "2rem" }}>✅</div>
+                <div style={{ color: "var(--ok)" }}>
+                  <Icon name="check" size={44} />
+                </div>
                 <h2 style={{ color: "var(--ok)" }}>Entrada liberada</h2>
                 <p style={{ fontWeight: 600 }}>{result.name}</p>
               </>
             )
           ) : (
             <>
-              <div style={{ fontSize: "2rem" }}>⛔</div>
+              <div style={{ color: "var(--err)" }}>
+                <Icon name="block" size={44} />
+              </div>
               <h2 style={{ color: "var(--err)" }}>Ingresso inválido</h2>
               <p className="muted">{result.reason}</p>
               {result.name && <p style={{ fontWeight: 600 }}>{result.name}</p>}
