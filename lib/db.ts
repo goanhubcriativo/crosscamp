@@ -13,7 +13,6 @@ function sql(): NeonQueryFunction<false, false> {
   return _sql;
 }
 
-// Executa uma query parametrizada ($1, $2, ...) e retorna as linhas.
 async function q<T = Record<string, unknown>>(
   text: string,
   params: unknown[] = []
@@ -22,7 +21,6 @@ async function q<T = Record<string, unknown>>(
   return rows as T[];
 }
 
-// Cria as tabelas se ainda não existirem. Idempotente.
 let _inited = false;
 export async function initDb(): Promise<void> {
   if (_inited) return;
@@ -48,7 +46,6 @@ export async function initDb(): Promise<void> {
       created_at      TEXT NOT NULL
     );
   `);
-  // Colunas de acesso do cliente (para tabelas já existentes).
   await q(`ALTER TABLE events ADD COLUMN IF NOT EXISTS owner_user TEXT;`);
   await q(`ALTER TABLE events ADD COLUMN IF NOT EXISTS owner_pass_hash TEXT;`);
   await q(`
@@ -60,6 +57,7 @@ export async function initDb(): Promise<void> {
       phone             TEXT,
       cpf               TEXT NOT NULL,
       amount            DOUBLE PRECISION NOT NULL,
+      quantity          INTEGER NOT NULL DEFAULT 1,
       status            TEXT NOT NULL DEFAULT 'PENDING',
       asaas_customer_id TEXT,
       asaas_payment_id  TEXT,
@@ -72,8 +70,19 @@ export async function initDb(): Promise<void> {
       paid_at           TEXT
     );
   `);
+  await q(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS quantity INTEGER NOT NULL DEFAULT 1;`);
+  await q(`
+    CREATE TABLE IF NOT EXISTS tickets (
+      id            TEXT PRIMARY KEY,
+      order_id      TEXT NOT NULL,
+      token         TEXT NOT NULL UNIQUE,
+      checked_in    INTEGER NOT NULL DEFAULT 0,
+      checked_in_at TEXT
+    );
+  `);
   await q(`CREATE INDEX IF NOT EXISTS idx_orders_payment ON orders (asaas_payment_id);`);
   await q(`CREATE INDEX IF NOT EXISTS idx_orders_event ON orders (event_id);`);
+  await q(`CREATE INDEX IF NOT EXISTS idx_tickets_order ON tickets (order_id);`);
   _inited = true;
 }
 
@@ -108,6 +117,7 @@ export type Order = {
   phone: string | null;
   cpf: string;
   amount: number;
+  quantity: number;
   status: "PENDING" | "PAID" | "CANCELLED";
   asaas_customer_id: string | null;
   asaas_payment_id: string | null;
@@ -118,6 +128,14 @@ export type Order = {
   checked_in_at: string | null;
   created_at: string;
   paid_at: string | null;
+};
+
+export type Ticket = {
+  id: string;
+  order_id: string;
+  token: string;
+  checked_in: number;
+  checked_in_at: string | null;
 };
 
 // ---------- Eventos ----------
@@ -149,23 +167,12 @@ export async function createEvent(id: string, e: EventInput): Promise<void> {
         asaas_api_key, asaas_env, published, owner_user, owner_pass_hash, created_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
     [
-      id,
-      e.slug,
-      e.name,
-      e.description ?? null,
-      e.event_date ?? null,
-      e.location ?? null,
-      e.price,
-      e.color_bg ?? brand.black,
-      e.color_primary ?? brand.violet,
-      e.color_accent ?? brand.lime,
-      e.color_text ?? brand.white,
-      e.logo ?? null,
-      e.asaas_api_key ?? null,
-      e.asaas_env ?? "sandbox",
-      e.published ? 1 : 0,
-      e.owner_user ?? null,
-      e.owner_pass_hash ?? null,
+      id, e.slug, e.name, e.description ?? null, e.event_date ?? null,
+      e.location ?? null, e.price,
+      e.color_bg ?? brand.black, e.color_primary ?? brand.violet,
+      e.color_accent ?? brand.lime, e.color_text ?? brand.white,
+      e.logo ?? null, e.asaas_api_key ?? null, e.asaas_env ?? "sandbox",
+      e.published ? 1 : 0, e.owner_user ?? null, e.owner_pass_hash ?? null,
       new Date().toISOString(),
     ]
   );
@@ -180,33 +187,17 @@ export async function updateEvent(id: string, e: EventInput): Promise<void> {
        owner_user=$15, owner_pass_hash=$16
      WHERE id=$17`,
     [
-      e.slug,
-      e.name,
-      e.description ?? null,
-      e.event_date ?? null,
-      e.location ?? null,
-      e.price,
-      e.color_bg ?? brand.black,
-      e.color_primary ?? brand.violet,
-      e.color_accent ?? brand.lime,
-      e.color_text ?? brand.white,
-      e.logo ?? null,
-      e.asaas_api_key ?? null,
-      e.asaas_env ?? "sandbox",
-      e.published ? 1 : 0,
-      e.owner_user ?? null,
-      e.owner_pass_hash ?? null,
-      id,
+      e.slug, e.name, e.description ?? null, e.event_date ?? null, e.location ?? null,
+      e.price, e.color_bg ?? brand.black, e.color_primary ?? brand.violet,
+      e.color_accent ?? brand.lime, e.color_text ?? brand.white,
+      e.logo ?? null, e.asaas_api_key ?? null, e.asaas_env ?? "sandbox",
+      e.published ? 1 : 0, e.owner_user ?? null, e.owner_pass_hash ?? null, id,
     ]
   );
 }
 
-// Busca evento pelo usuário de acesso do cliente (para login do organizador).
 export async function getEventByOwnerUser(user: string): Promise<EventRow | null> {
-  const rows = await q<EventRow>(
-    "SELECT * FROM events WHERE owner_user = $1 LIMIT 1",
-    [user]
-  );
+  const rows = await q<EventRow>("SELECT * FROM events WHERE owner_user = $1 LIMIT 1", [user]);
   return rows[0] ?? null;
 }
 
@@ -224,32 +215,54 @@ export async function listEvents(): Promise<EventRow[]> {
   return q<EventRow>("SELECT * FROM events ORDER BY created_at DESC");
 }
 
+export async function listPublishedEvents(): Promise<EventRow[]> {
+  return q<EventRow>("SELECT * FROM events WHERE published = 1 ORDER BY created_at DESC");
+}
+
 export async function deleteEvent(id: string): Promise<void> {
   await q("DELETE FROM events WHERE id = $1", [id]);
 }
 
 export async function eventStats(eventId: string): Promise<{
-  total: number;
-  paid: number;
-  checkedIn: number;
+  orders: number;
+  tickets: number;
+  entered: number;
   revenue: number;
 }> {
-  const rows = await q<Record<string, unknown>>(
-    `SELECT
-       COUNT(*) AS total,
-       SUM(CASE WHEN status='PAID' THEN 1 ELSE 0 END) AS paid,
-       SUM(CASE WHEN status='PAID' AND checked_in=1 THEN 1 ELSE 0 END) AS checkedin,
-       SUM(CASE WHEN status='PAID' THEN amount ELSE 0 END) AS revenue
+  const o = await q<Record<string, unknown>>(
+    `SELECT COUNT(*) AS orders,
+            SUM(CASE WHEN status='PAID' THEN quantity ELSE 0 END) AS tickets,
+            SUM(CASE WHEN status='PAID' THEN amount ELSE 0 END) AS revenue
      FROM orders WHERE event_id = $1`,
     [eventId]
   );
-  const row = rows[0] ?? {};
+  const e = await q<Record<string, unknown>>(
+    `SELECT COUNT(*) AS entered
+     FROM tickets t JOIN orders o ON t.order_id = o.id
+     WHERE o.event_id = $1 AND t.checked_in = 1`,
+    [eventId]
+  );
+  const row = o[0] ?? {};
   return {
-    total: Number(row.total ?? 0),
-    paid: Number(row.paid ?? 0),
-    checkedIn: Number(row.checkedin ?? 0),
+    orders: Number(row.orders ?? 0),
+    tickets: Number(row.tickets ?? 0),
+    entered: Number(e[0]?.entered ?? 0),
     revenue: Number(row.revenue ?? 0),
   };
+}
+
+// Entradas registradas por pedido (para a tabela de compradores).
+export async function ticketEntryCounts(eventId: string): Promise<Record<string, number>> {
+  const rows = await q<{ order_id: string; entered: number }>(
+    `SELECT t.order_id AS order_id, COUNT(*) AS entered
+     FROM tickets t JOIN orders o ON t.order_id = o.id
+     WHERE o.event_id = $1 AND t.checked_in = 1
+     GROUP BY t.order_id`,
+    [eventId]
+  );
+  const map: Record<string, number> = {};
+  for (const r of rows) map[r.order_id] = Number(r.entered);
+  return map;
 }
 
 // ---------- Pedidos ----------
@@ -260,10 +273,7 @@ export async function getOrder(id: string): Promise<Order | null> {
 }
 
 export async function getOrderByPaymentId(paymentId: string): Promise<Order | null> {
-  const rows = await q<Order>(
-    "SELECT * FROM orders WHERE asaas_payment_id = $1",
-    [paymentId]
-  );
+  const rows = await q<Order>("SELECT * FROM orders WHERE asaas_payment_id = $1", [paymentId]);
   return rows[0] ?? null;
 }
 
@@ -273,13 +283,22 @@ export async function getOrderByToken(token: string): Promise<Order | null> {
 }
 
 export async function listOrdersByEvent(eventId: string): Promise<Order[]> {
-  return q<Order>(
-    "SELECT * FROM orders WHERE event_id = $1 ORDER BY created_at DESC",
-    [eventId]
-  );
+  return q<Order>("SELECT * FROM orders WHERE event_id = $1 ORDER BY created_at DESC", [eventId]);
 }
 
-// ---------- Pedidos: escrita ----------
+// Recuperar ingresso: pedido pago mais recente por CPF + e-mail.
+export async function findPaidOrderByCpfEmail(
+  cpf: string,
+  email: string
+): Promise<Order | null> {
+  const rows = await q<Order>(
+    `SELECT * FROM orders
+     WHERE cpf = $1 AND LOWER(email) = LOWER($2) AND status = 'PAID'
+     ORDER BY paid_at DESC LIMIT 1`,
+    [cpf, email]
+  );
+  return rows[0] ?? null;
+}
 
 export async function insertOrder(o: {
   id: string;
@@ -289,6 +308,7 @@ export async function insertOrder(o: {
   phone: string | null;
   cpf: string;
   amount: number;
+  quantity: number;
   asaas_customer_id: string;
   asaas_payment_id: string;
   pix_payload: string;
@@ -296,21 +316,12 @@ export async function insertOrder(o: {
 }): Promise<void> {
   await q(
     `INSERT INTO orders
-       (id, event_id, name, email, phone, cpf, amount, status,
+       (id, event_id, name, email, phone, cpf, amount, quantity, status,
         asaas_customer_id, asaas_payment_id, pix_payload, pix_qr_image, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,'PENDING',$8,$9,$10,$11,$12)`,
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'PENDING',$9,$10,$11,$12,$13)`,
     [
-      o.id,
-      o.event_id,
-      o.name,
-      o.email,
-      o.phone,
-      o.cpf,
-      o.amount,
-      o.asaas_customer_id,
-      o.asaas_payment_id,
-      o.pix_payload,
-      o.pix_qr_image,
+      o.id, o.event_id, o.name, o.email, o.phone, o.cpf, o.amount, o.quantity,
+      o.asaas_customer_id, o.asaas_payment_id, o.pix_payload, o.pix_qr_image,
       new Date().toISOString(),
     ]
   );
@@ -318,16 +329,29 @@ export async function insertOrder(o: {
 
 export async function markPaidById(orderId: string, token: string): Promise<void> {
   await q(
-    `UPDATE orders
-       SET status='PAID', ticket_token=$1, paid_at=COALESCE(paid_at,$2)
-     WHERE id=$3`,
+    `UPDATE orders SET status='PAID', ticket_token=$1, paid_at=COALESCE(paid_at,$2) WHERE id=$3`,
     [token, new Date().toISOString(), orderId]
   );
 }
 
-export async function registerEntryById(orderId: string): Promise<void> {
+// ---------- Ingressos individuais ----------
+
+export async function insertTicket(id: string, orderId: string, token: string): Promise<void> {
+  await q("INSERT INTO tickets (id, order_id, token) VALUES ($1,$2,$3)", [id, orderId, token]);
+}
+
+export async function listTicketsByOrder(orderId: string): Promise<Ticket[]> {
+  return q<Ticket>("SELECT * FROM tickets WHERE order_id = $1 ORDER BY id", [orderId]);
+}
+
+export async function getTicketByToken(token: string): Promise<Ticket | null> {
+  const rows = await q<Ticket>("SELECT * FROM tickets WHERE token = $1", [token]);
+  return rows[0] ?? null;
+}
+
+export async function markTicketCheckedIn(ticketId: string): Promise<void> {
   await q(
-    "UPDATE orders SET checked_in=1, checked_in_at=$1 WHERE id=$2 AND checked_in=0",
-    [new Date().toISOString(), orderId]
+    "UPDATE tickets SET checked_in=1, checked_in_at=$1 WHERE id=$2 AND checked_in=0",
+    [new Date().toISOString(), ticketId]
   );
 }

@@ -1,7 +1,13 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { canAccessEvent, getSession } from "@/lib/auth";
-import { initDb, getEventById, listOrdersByEvent, eventStats } from "@/lib/db";
+import {
+  initDb,
+  getEventById,
+  listOrdersByEvent,
+  eventStats,
+  ticketEntryCounts,
+} from "@/lib/db";
 import { formatBRL } from "@/lib/config";
 import AdminHeader from "../../../AdminHeader";
 
@@ -24,6 +30,7 @@ export default async function CompradoresPage({
   if (!event) notFound();
   const orders = await listOrdersByEvent(id);
   const stats = await eventStats(id);
+  const entries = await ticketEntryCounts(id);
   const role = (await getSession())?.role === "org" ? "org" : "admin";
 
   return (
@@ -40,16 +47,16 @@ export default async function CompradoresPage({
       <div className="row-between" style={{ margin: "20px 0", flexWrap: "wrap" }}>
         <div className="stat">
           <div className="muted">Pedidos</div>
-          <div className="n">{stats.total}</div>
+          <div className="n">{stats.orders}</div>
         </div>
         <div className="stat">
-          <div className="muted">Pagos</div>
-          <div className="n">{stats.paid}</div>
+          <div className="muted">Ingressos</div>
+          <div className="n">{stats.tickets}</div>
         </div>
         <div className="stat">
           <div className="muted">Entradas</div>
           <div className="n">
-            {stats.checkedIn}/{stats.paid}
+            {stats.entered}/{stats.tickets}
           </div>
         </div>
         <div className="stat">
@@ -65,7 +72,8 @@ export default async function CompradoresPage({
               <th>Nome</th>
               <th>Contato</th>
               <th>Status</th>
-              <th>Entrada</th>
+              <th>Ingressos</th>
+              <th>Entradas</th>
               <th>Criado em</th>
               <th>Pago em</th>
             </tr>
@@ -73,7 +81,7 @@ export default async function CompradoresPage({
           <tbody>
             {orders.length === 0 && (
               <tr>
-                <td colSpan={6} className="muted center" style={{ padding: 24 }}>
+                <td colSpan={7} className="muted center" style={{ padding: 24 }}>
                   Nenhum pedido ainda.
                 </td>
               </tr>
@@ -101,9 +109,16 @@ export default async function CompradoresPage({
                     <span className="badge badge-pending">Pendente</span>
                   )}
                 </td>
+                <td>{o.quantity}</td>
                 <td>
-                  {o.checked_in ? (
-                    <span className="badge badge-in">✓ Entrou</span>
+                  {o.status === "PAID" ? (
+                    <span
+                      className={
+                        (entries[o.id] ?? 0) >= o.quantity ? "badge badge-in" : "muted"
+                      }
+                    >
+                      {entries[o.id] ?? 0}/{o.quantity}
+                    </span>
                   ) : (
                     <span className="muted">—</span>
                   )}

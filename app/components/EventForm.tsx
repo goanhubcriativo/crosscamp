@@ -4,6 +4,22 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { EventRow } from "@/lib/db";
 
+// Paleta padrão do CrossCamp.
+const CROSSCAMP_COLORS = {
+  color_bg: "#0A0711",
+  color_primary: "#7D39EB",
+  color_accent: "#C6FF33",
+  color_text: "#F3F0FB",
+} as const;
+
+// Campos de cor com explicação de onde cada uma aparece.
+const COLOR_FIELDS = [
+  { key: "color_bg", label: "Fundo", hint: "Cor de fundo da página do evento." },
+  { key: "color_primary", label: "Primária", hint: "Botões (ex.: Comprar) e detalhes principais." },
+  { key: "color_accent", label: "Destaque", hint: "Preço, links, faixa e destaques (o 'lime' da marca)." },
+  { key: "color_text", label: "Texto", hint: "Cor dos textos sobre o fundo." },
+] as const;
+
 type FormState = {
   name: string;
   slug: string;
@@ -54,6 +70,9 @@ export default function EventForm({ event }: { event?: EventRow }) {
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
+
+  const applyCrossCampColors = () =>
+    setForm((f) => ({ ...f, ...CROSSCAMP_COLORS }));
 
   const slugify = (s: string) =>
     s
@@ -170,16 +189,24 @@ export default function EventForm({ event }: { event?: EventRow }) {
 
       <div className="card" style={{ marginTop: 16 }}>
         <h2>Identidade visual</h2>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {(
-            [
-              ["color_bg", "Fundo"],
-              ["color_primary", "Primária"],
-              ["color_accent", "Destaque"],
-              ["color_text", "Texto"],
-            ] as const
-          ).map(([key, label]) => (
-            <div key={key} style={{ flex: "1 1 100px" }}>
+        <button
+          type="button"
+          className="btn-ghost"
+          onClick={applyCrossCampColors}
+          style={{ marginBottom: 4 }}
+        >
+          Usar cores padrão do CrossCamp
+        </button>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+            gap: 12,
+            marginTop: 12,
+          }}
+        >
+          {COLOR_FIELDS.map(({ key, label, hint }) => (
+            <div key={key}>
               <label htmlFor={key}>{label}</label>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <input
@@ -195,6 +222,9 @@ export default function EventForm({ event }: { event?: EventRow }) {
                   style={{ flex: 1 }}
                 />
               </div>
+              <p className="muted" style={{ fontSize: "0.72rem", marginTop: 4 }}>
+                {hint}
+              </p>
             </div>
           ))}
         </div>

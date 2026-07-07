@@ -23,7 +23,9 @@ export default async function AdminPage() {
     events = [];
   }
   const stats = await Promise.all(
-    events.map((e) => eventStats(e.id).catch(() => ({ total: 0, paid: 0, checkedIn: 0, revenue: 0 })))
+    events.map((e) =>
+      eventStats(e.id).catch(() => ({ orders: 0, tickets: 0, entered: 0, revenue: 0 }))
+    )
   );
 
   if (dbError) {
@@ -101,13 +103,13 @@ export default async function AdminPage() {
                 style={{ marginTop: 14, flexWrap: "wrap", gap: 10 }}
               >
                 <div className="stat">
-                  <div className="muted">Pagos</div>
-                  <div className="n">{stats[i].paid}</div>
+                  <div className="muted">Ingressos</div>
+                  <div className="n">{stats[i].tickets}</div>
                 </div>
                 <div className="stat">
                   <div className="muted">Entradas</div>
                   <div className="n">
-                    {stats[i].checkedIn}/{stats[i].paid}
+                    {stats[i].entered}/{stats[i].tickets}
                   </div>
                 </div>
                 <div className="stat">

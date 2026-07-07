@@ -30,6 +30,8 @@ export async function POST(req: NextRequest) {
     const email = String(body.email ?? "").trim();
     const phone = onlyDigits(String(body.phone ?? ""));
     const cpf = onlyDigits(String(body.cpf ?? ""));
+    // Quantidade de ingressos (1 a 10).
+    const quantity = Math.min(10, Math.max(1, Math.floor(Number(body.quantity) || 1)));
 
     const event = eventSlug ? await getEventBySlug(eventSlug) : null;
     if (!event || !event.published) {
@@ -53,6 +55,7 @@ export async function POST(req: NextRequest) {
 
     const creds = { apiKey: event.asaas_api_key, env: event.asaas_env };
     const orderId = newId();
+    const amount = Math.round(event.price * quantity * 100) / 100;
 
     const customer = await createCustomer(creds, {
       name,
@@ -63,8 +66,11 @@ export async function POST(req: NextRequest) {
 
     const payment = await createPixPayment(creds, {
       customerId: customer.id,
-      value: event.price,
-      description: `Ingresso - ${event.name}`,
+      value: amount,
+      description:
+        quantity > 1
+          ? `${quantity}x Ingresso - ${event.name}`
+          : `Ingresso - ${event.name}`,
       externalReference: orderId,
     });
 
@@ -77,7 +83,8 @@ export async function POST(req: NextRequest) {
       email,
       phone: phone || null,
       cpf,
-      amount: event.price,
+      amount,
+      quantity,
       asaas_customer_id: customer.id,
       asaas_payment_id: payment.id,
       pix_payload: qr.payload,
