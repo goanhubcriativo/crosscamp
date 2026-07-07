@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { isAuthenticated } from "@/lib/auth";
+import { isAdmin } from "@/lib/auth";
 import { initDb, getEventById } from "@/lib/db";
 import AdminHeader from "../../AdminHeader";
 import EventForm from "../../../components/EventForm";
@@ -12,7 +12,7 @@ export default async function EditarEventoPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  if (!(await isAuthenticated())) redirect("/admin/login");
+  if (!(await isAdmin())) redirect("/admin/login");
   await initDb();
   const { id } = await params;
   const event = await getEventById(id);

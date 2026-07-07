@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { isAuthenticated } from "@/lib/auth";
+import { canAccessEvent, getSession } from "@/lib/auth";
 import { initDb, getEventById, listOrdersByEvent, eventStats } from "@/lib/db";
 import { formatBRL } from "@/lib/config";
 import AdminHeader from "../../../AdminHeader";
@@ -17,21 +17,24 @@ export default async function CompradoresPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  if (!(await isAuthenticated())) redirect("/admin/login");
-  await initDb();
   const { id } = await params;
+  if (!(await canAccessEvent(id))) redirect("/admin/login");
+  await initDb();
   const event = await getEventById(id);
   if (!event) notFound();
   const orders = await listOrdersByEvent(id);
   const stats = await eventStats(id);
+  const role = (await getSession())?.role === "org" ? "org" : "admin";
 
   return (
     <div className="container container-wide">
-      <AdminHeader />
-      <Link href="/admin" className="muted">
-        ← Voltar
-      </Link>
-      <h1 style={{ marginTop: 8 }}>Compradores</h1>
+      <AdminHeader role={role} eventId={id} eventName={event.name} />
+      {role === "admin" && (
+        <Link href="/admin" className="muted">
+          ← Voltar
+        </Link>
+      )}
+      <h1 style={{ marginTop: 8 }}>Vendas</h1>
       <p className="muted">{event.name}</p>
 
       <div className="row-between" style={{ margin: "20px 0", flexWrap: "wrap" }}>

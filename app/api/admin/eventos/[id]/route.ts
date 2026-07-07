@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAuthenticated } from "@/lib/auth";
+import { isAdmin, hashPassword } from "@/lib/auth";
 import {
   initDb,
   updateEvent,
@@ -15,7 +15,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!(await isAuthenticated())) {
+  if (!(await isAdmin())) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
   await initDb();
@@ -43,6 +43,11 @@ export async function PATCH(
     }
   }
 
+  // Senha do cliente: só troca se uma nova foi informada; senão mantém a atual.
+  parsed.value.owner_pass_hash = parsed.ownerPassword
+    ? hashPassword(parsed.ownerPassword)
+    : current.owner_pass_hash;
+
   await updateEvent(id, parsed.value);
   return NextResponse.json({ id, slug: parsed.value.slug });
 }
@@ -51,7 +56,7 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!(await isAuthenticated())) {
+  if (!(await isAdmin())) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
   await initDb();

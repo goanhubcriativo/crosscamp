@@ -19,6 +19,8 @@ type FormState = {
   asaas_api_key: string;
   asaas_env: "sandbox" | "production";
   published: boolean;
+  owner_user: string;
+  owner_password: string;
 };
 
 function fromEvent(e?: EventRow): FormState {
@@ -37,6 +39,8 @@ function fromEvent(e?: EventRow): FormState {
     asaas_api_key: e?.asaas_api_key ?? "",
     asaas_env: e?.asaas_env ?? "sandbox",
     published: e ? Boolean(e.published) : false,
+    owner_user: e?.owner_user ?? "",
+    owner_password: "",
   };
 }
 
@@ -261,6 +265,31 @@ export default function EventForm({ event }: { event?: EventRow }) {
           />
           Publicar evento (fica acessível no link público)
         </label>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h2>Acesso do cliente</h2>
+        <p className="muted" style={{ fontSize: "0.85rem", marginTop: 0 }}>
+          Crie um login para o organizador acompanhar as vendas e validar entradas
+          deste evento (ele vê só este evento, sem editar nada).
+        </p>
+        <label htmlFor="owner_user">Usuário do cliente</label>
+        <input
+          id="owner_user"
+          value={form.owner_user}
+          onChange={(e) => set("owner_user", e.target.value)}
+          placeholder="ex.: battlegames"
+        />
+        <label htmlFor="owner_password">
+          Senha do cliente {editing && "(deixe em branco para manter a atual)"}
+        </label>
+        <input
+          id="owner_password"
+          type="text"
+          value={form.owner_password}
+          onChange={(e) => set("owner_password", e.target.value)}
+          placeholder={editing ? "••••••••" : "defina uma senha"}
+        />
       </div>
 
       {error && <div className="error">{error}</div>}

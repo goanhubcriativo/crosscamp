@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { isAuthenticated } from "@/lib/auth";
+import { canAccessEvent, getSession } from "@/lib/auth";
 import { initDb, getEventById } from "@/lib/db";
 import AdminHeader from "../../../AdminHeader";
 import Validator from "../../../../components/Validator";
@@ -12,18 +12,21 @@ export default async function ValidarPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  if (!(await isAuthenticated())) redirect("/admin/login");
-  await initDb();
   const { id } = await params;
+  if (!(await canAccessEvent(id))) redirect("/admin/login");
+  await initDb();
   const event = await getEventById(id);
   if (!event) notFound();
+  const role = (await getSession())?.role === "org" ? "org" : "admin";
 
   return (
     <div className="container">
-      <AdminHeader />
-      <Link href="/admin" className="muted">
-        ← Voltar
-      </Link>
+      <AdminHeader role={role} eventId={id} eventName={event.name} />
+      {role === "admin" && (
+        <Link href={`/admin/eventos/${id}/compradores`} className="muted">
+          ← Vendas
+        </Link>
+      )}
       <h1 style={{ marginTop: 8 }}>Validar entrada</h1>
       <p className="muted">
         {event.name} — escaneie o QR do ingresso ou cole o código.

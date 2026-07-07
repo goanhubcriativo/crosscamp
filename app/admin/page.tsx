@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { isAuthenticated } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { initDb, listEvents, eventStats, type EventRow } from "@/lib/db";
 import { config, formatBRL } from "@/lib/config";
 import AdminHeader from "./AdminHeader";
@@ -8,7 +8,10 @@ import AdminHeader from "./AdminHeader";
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  if (!(await isAuthenticated())) redirect("/admin/login");
+  const s = await getSession();
+  if (!s) redirect("/admin/login");
+  // Organizador não vê a lista geral — vai direto pro painel do evento dele.
+  if (s.role === "org") redirect(`/admin/eventos/${s.eventId}/compradores`);
 
   let events: EventRow[] = [];
   let dbError = false;

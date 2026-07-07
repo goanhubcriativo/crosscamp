@@ -22,7 +22,7 @@ export default function LoginForm() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Falha no login.");
-      router.replace("/admin");
+      router.replace(data.redirect ?? "/admin");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro inesperado.");

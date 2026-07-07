@@ -23,10 +23,14 @@ export function normalizeSlug(input: string): string {
 // Retorna { ok: true, value } ou { ok: false, error }.
 export function parseEventInput(
   body: Record<string, unknown>
-): { ok: true; value: EventInput } | { ok: false; error: string } {
+):
+  | { ok: true; value: EventInput; ownerUser: string | null; ownerPassword: string | null }
+  | { ok: false; error: string } {
   const slug = normalizeSlug(String(body.slug ?? ""));
   const name = String(body.name ?? "").trim();
   const price = Number(body.price);
+  const ownerUser = String(body.owner_user ?? "").trim() || null;
+  const ownerPassword = String(body.owner_password ?? "").trim() || null;
 
   if (!name) return { ok: false, error: "Informe o nome do evento." };
   if (!slug) return { ok: false, error: "Informe um link (slug) válido." };
@@ -46,6 +50,8 @@ export function parseEventInput(
 
   return {
     ok: true,
+    ownerUser,
+    ownerPassword,
     value: {
       slug,
       name,
@@ -61,6 +67,7 @@ export function parseEventInput(
       asaas_api_key: (String(body.asaas_api_key ?? "").trim() || null),
       asaas_env: env,
       published: Boolean(body.published),
+      owner_user: ownerUser,
     },
   };
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAuthenticated } from "@/lib/auth";
+import { isAdmin, hashPassword } from "@/lib/auth";
 import { initDb, createEvent, getEventBySlug } from "@/lib/db";
 import { newId } from "@/lib/ticket";
 import { parseEventInput } from "@/lib/events";
@@ -7,7 +7,7 @@ import { parseEventInput } from "@/lib/events";
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  if (!(await isAuthenticated())) {
+  if (!(await isAdmin())) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
   await initDb();
@@ -24,6 +24,10 @@ export async function POST(req: NextRequest) {
       { error: `Já existe um evento com o link "${parsed.value.slug}".` },
       { status: 409 }
     );
+  }
+
+  if (parsed.ownerPassword) {
+    parsed.value.owner_pass_hash = hashPassword(parsed.ownerPassword);
   }
 
   const id = newId();

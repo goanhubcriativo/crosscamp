@@ -43,9 +43,14 @@ export async function initDb(): Promise<void> {
       asaas_api_key   TEXT,
       asaas_env       TEXT NOT NULL DEFAULT 'sandbox',
       published       INTEGER NOT NULL DEFAULT 0,
+      owner_user      TEXT,
+      owner_pass_hash TEXT,
       created_at      TEXT NOT NULL
     );
   `);
+  // Colunas de acesso do cliente (para tabelas já existentes).
+  await q(`ALTER TABLE events ADD COLUMN IF NOT EXISTS owner_user TEXT;`);
+  await q(`ALTER TABLE events ADD COLUMN IF NOT EXISTS owner_pass_hash TEXT;`);
   await q(`
     CREATE TABLE IF NOT EXISTS orders (
       id                TEXT PRIMARY KEY,
@@ -90,6 +95,8 @@ export type EventRow = {
   asaas_api_key: string | null;
   asaas_env: "sandbox" | "production";
   published: number;
+  owner_user: string | null;
+  owner_pass_hash: string | null;
   created_at: string;
 };
 
@@ -130,6 +137,8 @@ export type EventInput = {
   asaas_api_key?: string | null;
   asaas_env?: "sandbox" | "production";
   published?: boolean;
+  owner_user?: string | null;
+  owner_pass_hash?: string | null;
 };
 
 export async function createEvent(id: string, e: EventInput): Promise<void> {
@@ -137,8 +146,8 @@ export async function createEvent(id: string, e: EventInput): Promise<void> {
     `INSERT INTO events
        (id, slug, name, description, event_date, location, price,
         color_bg, color_primary, color_accent, color_text, logo,
-        asaas_api_key, asaas_env, published, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+        asaas_api_key, asaas_env, published, owner_user, owner_pass_hash, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
     [
       id,
       e.slug,
@@ -155,6 +164,8 @@ export async function createEvent(id: string, e: EventInput): Promise<void> {
       e.asaas_api_key ?? null,
       e.asaas_env ?? "sandbox",
       e.published ? 1 : 0,
+      e.owner_user ?? null,
+      e.owner_pass_hash ?? null,
       new Date().toISOString(),
     ]
   );
@@ -165,8 +176,9 @@ export async function updateEvent(id: string, e: EventInput): Promise<void> {
     `UPDATE events SET
        slug=$1, name=$2, description=$3, event_date=$4, location=$5,
        price=$6, color_bg=$7, color_primary=$8, color_accent=$9,
-       color_text=$10, logo=$11, asaas_api_key=$12, asaas_env=$13, published=$14
-     WHERE id=$15`,
+       color_text=$10, logo=$11, asaas_api_key=$12, asaas_env=$13, published=$14,
+       owner_user=$15, owner_pass_hash=$16
+     WHERE id=$17`,
     [
       e.slug,
       e.name,
@@ -182,9 +194,20 @@ export async function updateEvent(id: string, e: EventInput): Promise<void> {
       e.asaas_api_key ?? null,
       e.asaas_env ?? "sandbox",
       e.published ? 1 : 0,
+      e.owner_user ?? null,
+      e.owner_pass_hash ?? null,
       id,
     ]
   );
+}
+
+// Busca evento pelo usuário de acesso do cliente (para login do organizador).
+export async function getEventByOwnerUser(user: string): Promise<EventRow | null> {
+  const rows = await q<EventRow>(
+    "SELECT * FROM events WHERE owner_user = $1 LIMIT 1",
+    [user]
+  );
+  return rows[0] ?? null;
 }
 
 export async function getEventBySlug(slug: string): Promise<EventRow | null> {

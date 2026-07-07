@@ -1,20 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAuthenticated } from "@/lib/auth";
+import { canAccessEvent } from "@/lib/auth";
 import { registerEntry } from "@/lib/ticket";
 import { initDb, getOrderByToken } from "@/lib/db";
 
 export const runtime = "nodejs";
 
-// Valida um ingresso pelo token e registra a entrada. Apenas gestor autenticado.
+// Valida um ingresso pelo token e registra a entrada.
+// Super-admin ou o organizador do próprio evento.
 export async function POST(req: NextRequest) {
-  if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
-  }
   await initDb();
 
   const body = await req.json().catch(() => ({}));
   const eventId = String(body.eventId ?? "").trim();
   let token = String(body.token ?? "").trim();
+
+  if (!eventId || !(await canAccessEvent(eventId))) {
+    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  }
 
   // Aceita tanto o token puro quanto uma URL /ingresso/<token>.
   const m = token.match(/ingresso\/([a-f0-9]+)/i);
