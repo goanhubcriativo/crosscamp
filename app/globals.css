@@ -10,7 +10,10 @@
   --warn: #fbbf24;
   --err: #f87171;
   --border: #2e2350;
-  --radius: 14px;
+  --radius: 16px;
+  --font-display: "Anton", system-ui, sans-serif;
+  --font-sans: "Space Grotesk", system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, monospace;
 }
 
 * {
@@ -23,8 +26,9 @@ body {
   padding: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
@@ -32,13 +36,13 @@ a {
 }
 
 .container {
-  max-width: 560px;
+  max-width: 620px;
   margin: 0 auto;
-  padding: 32px 20px 64px;
+  padding: 32px 20px 80px;
 }
 
 .container-wide {
-  max-width: 980px;
+  max-width: 1040px;
 }
 
 .card {
@@ -48,129 +52,214 @@ a {
   padding: 24px;
 }
 
+/* ---------- Tipografia ---------- */
+
 h1 {
-  font-size: 1.6rem;
-  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(2.4rem, 8vw, 4.2rem);
+  line-height: 0.92;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  margin: 0 0 10px;
 }
 
 h2 {
-  font-size: 1.2rem;
-  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.5rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin: 0 0 14px;
 }
 
 .muted {
   color: var(--muted);
 }
 
-.price {
-  font-size: 2rem;
+/* Etiqueta mono estilo [TAG] / #LABEL */
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
   font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
   color: var(--brand-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
+
+.kicker--muted {
+  color: var(--muted);
+}
+
+/* Marcação /// */
+.slashes {
+  font-family: var(--font-display);
+  color: var(--brand-2);
+  transform: skewX(-12deg);
+  letter-spacing: -2px;
+  display: inline-block;
+}
+
+.bignum {
+  font-family: var(--font-display);
+  font-size: clamp(4rem, 22vw, 12rem);
+  line-height: 0.82;
+  color: var(--brand-2);
+  letter-spacing: -0.01em;
+}
+
+.price {
+  font-family: var(--font-display);
+  font-size: clamp(2.6rem, 10vw, 4rem);
+  line-height: 1;
+  color: var(--brand-2);
+  letter-spacing: 0.01em;
+}
+
+/* ---------- Formulário ---------- */
 
 label {
   display: block;
-  font-size: 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: var(--muted);
-  margin: 14px 0 6px;
+  margin: 16px 0 6px;
 }
 
-input {
+input,
+select {
   width: 100%;
-  padding: 12px 14px;
-  border-radius: 10px;
+  padding: 13px 15px;
+  border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--card-2);
   color: var(--text);
   font-size: 1rem;
+  font-family: var(--font-sans);
 }
 
-input:focus {
+input:focus,
+select:focus {
   outline: 2px solid var(--brand);
   border-color: var(--brand);
 }
 
+/* ---------- Botões ---------- */
+
 button {
   cursor: pointer;
   border: none;
-  border-radius: 10px;
-  padding: 13px 18px;
-  font-size: 1rem;
-  font-weight: 600;
+  border-radius: 999px;
+  padding: 13px 22px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   background: var(--brand);
-  color: white;
-  transition: filter 0.15s ease;
+  color: #fff;
+  transition: transform 0.12s ease, filter 0.15s ease;
 }
 
 button:hover {
-  filter: brightness(1.08);
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
 }
 
 button:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
 .btn-block {
   width: 100%;
-  margin-top: 20px;
+  margin-top: 22px;
 }
 
 .btn-ghost {
   background: transparent;
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   color: var(--text);
+}
+
+.btn-ghost:hover {
+  border-color: var(--brand-2);
+}
+
+/* Botão de destaque em lime (texto preto) */
+.btn-lime {
+  background: var(--brand-2);
+  color: #06120a;
 }
 
 .error {
   color: var(--err);
   margin-top: 12px;
   font-size: 0.92rem;
+  font-family: var(--font-mono);
 }
+
+/* ---------- Badges ---------- */
 
 .badge {
   display: inline-block;
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .badge-paid {
-  background: rgba(52, 211, 153, 0.15);
+  background: rgba(52, 211, 153, 0.16);
   color: var(--ok);
 }
 
 .badge-pending {
-  background: rgba(251, 191, 36, 0.15);
+  background: rgba(251, 191, 36, 0.16);
   color: var(--warn);
 }
 
 .badge-in {
-  background: rgba(125, 57, 235, 0.22);
+  background: rgba(125, 57, 235, 0.24);
   color: #b794ff;
 }
 
+/* ---------- QR / copia e cola ---------- */
+
 .qr {
   display: block;
-  margin: 18px auto;
+  margin: 20px auto;
   width: 240px;
   height: 240px;
-  background: white;
-  border-radius: 12px;
+  background: #fff;
+  border-radius: 14px;
   padding: 10px;
 }
 
 .copia {
   word-break: break-all;
-  font-family: ui-monospace, monospace;
-  font-size: 0.82rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
   background: var(--card-2);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 12px;
   margin-top: 8px;
 }
+
+/* ---------- Tabela ---------- */
 
 table {
   width: 100%;
@@ -181,14 +270,20 @@ table {
 th,
 td {
   text-align: left;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--border);
 }
 
 th {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--muted);
-  font-weight: 600;
+  font-weight: 700;
 }
+
+/* ---------- Layout util ---------- */
 
 .row-between {
   display: flex;
@@ -200,14 +295,23 @@ th {
 .stat {
   background: var(--card-2);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 14px 16px;
   flex: 1;
+  min-width: 120px;
+}
+
+.stat .muted {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .stat .n {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  margin-top: 2px;
 }
 
 .center {
@@ -218,7 +322,7 @@ th {
   width: 22px;
   height: 22px;
   border: 3px solid var(--border);
-  border-top-color: var(--brand);
+  border-top-color: var(--brand-2);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   display: inline-block;
@@ -231,8 +335,47 @@ th {
   }
 }
 
+/* ---------- Marquee (faixa rolando) ---------- */
+
+.marquee {
+  overflow: hidden;
+  white-space: nowrap;
+  background: var(--brand);
+  color: #fff;
+  border-radius: 999px;
+  padding: 10px 0;
+  margin: 22px 0;
+}
+
+.marquee--lime {
+  background: var(--brand-2);
+  color: #06120a;
+}
+
+.marquee-track {
+  display: inline-block;
+  animation: marquee 18s linear infinite;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.marquee-track span {
+  padding: 0 18px;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
 /* ---------- Tema por evento ---------- */
-/* Superfícies derivadas das cores do evento (funcionam em fundo claro ou escuro). */
 .event-theme .card {
   background: color-mix(in srgb, var(--text) 6%, transparent);
   border-color: color-mix(in srgb, var(--text) 16%, transparent);
@@ -243,6 +386,7 @@ th {
 }
 
 .event-theme input,
+.event-theme select,
 .event-theme .copia {
   background: color-mix(in srgb, var(--text) 8%, transparent);
   border-color: color-mix(in srgb, var(--text) 20%, transparent);
@@ -256,10 +400,12 @@ th {
 .event-theme .btn-ghost {
   background: transparent;
   color: var(--text);
-  border: 1px solid color-mix(in srgb, var(--text) 24%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--text) 24%, transparent);
 }
 
-.event-theme .price {
+.event-theme .kicker,
+.event-theme .price,
+.event-theme .slashes {
   color: var(--brand-2);
 }
 
@@ -268,14 +414,14 @@ th {
 }
 
 .event-logo {
-  max-height: 72px;
+  max-height: 84px;
   max-width: 80%;
   width: auto;
-  margin: 0 auto 8px;
+  margin: 0 auto 14px;
   display: block;
 }
 
-/* ---------- Página "em breve" (raiz CrossCamp) ---------- */
+/* ---------- Página "em breve" ---------- */
 .soon {
   position: fixed;
   inset: 0;
@@ -283,14 +429,13 @@ th {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 28px;
+  gap: 26px;
   background: #000;
   overflow: hidden;
   text-align: center;
   padding: 24px;
 }
 
-/* Manchas de cor borradas ao fundo */
 .soon::before,
 .soon::after {
   content: "";
@@ -335,34 +480,45 @@ th {
   flex-direction: column;
   align-items: center;
   gap: 22px;
-  padding: 44px 40px;
-  border-radius: 24px;
+  padding: 46px 40px;
+  border-radius: 26px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  max-width: 520px;
+  max-width: 540px;
 }
 
 .soon-logo {
-  width: min(340px, 72vw);
+  width: min(320px, 70vw);
   height: auto;
 }
 
+.soon-big {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 14vw, 6rem);
+  line-height: 0.9;
+  text-transform: uppercase;
+  color: #fff;
+  margin: 0;
+}
+
+.soon-big em {
+  font-style: normal;
+  color: var(--brand-2);
+}
+
 .soon-tag {
-  display: inline-block;
-  font-size: 0.8rem;
-  letter-spacing: 0.32em;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
   color: #c6fe33;
   border: 1px solid rgba(198, 254, 51, 0.4);
   border-radius: 999px;
-  padding: 7px 18px;
-}
-
-.soon-text {
-  color: rgba(255, 255, 255, 0.66);
-  font-size: 0.98rem;
-  max-width: 340px;
-  margin: 0;
+  padding: 8px 20px;
 }
