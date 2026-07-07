@@ -569,6 +569,20 @@ th {
   text-transform: uppercase;
 }
 
+/* ---------- Topo da página do evento ---------- */
+.event-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.event-top-logo {
+  height: 24px;
+  width: auto;
+  display: block;
+}
+
 /* ---------- Página do evento: duas colunas no desktop ---------- */
 .event-grid {
   display: grid;

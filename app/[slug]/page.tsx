@@ -5,6 +5,7 @@ import { initDb, getEventBySlug } from "@/lib/db";
 import { formatBRL } from "@/lib/config";
 import EventTheme from "../components/EventTheme";
 import BuyForm from "../components/BuyForm";
+import CrossCampLogo from "../components/CrossCampLogo";
 
 export const dynamic = "force-dynamic";
 
@@ -48,9 +49,14 @@ export default async function EventPage({
   return (
     <EventTheme event={event}>
       <div className="container container-wide">
-        <span className="kicker">
-          <span className="slashes">///</span> Ingresso
-        </span>
+        <div className="event-top">
+          <span className="kicker">
+            <span className="slashes">///</span> Ingresso
+          </span>
+          <Link href="/" aria-label="CrossCamp">
+            <CrossCampLogo className="event-top-logo" />
+          </Link>
+        </div>
 
         <div className="marquee marquee--lime" style={{ marginTop: 14 }}>
           <div className="marquee-track">
