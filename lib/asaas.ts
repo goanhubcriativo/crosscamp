@@ -16,10 +16,15 @@ type AsaasPixQr = {
   expirationDate?: string;
 };
 
+// Em produção, se ASAAS_PROXY_URL estiver definido, as chamadas passam por um
+// relay com IP fixo (Render) — o Asaas exige IP autorizado e a Vercel não tem
+// IP fixo. Sandbox chama o Asaas direto (não precisa de IP fixo).
 function baseUrl(env: "sandbox" | "production"): string {
-  return env === "production"
-    ? "https://api.asaas.com/v3"
-    : "https://sandbox.asaas.com/api/v3";
+  if (env === "production") {
+    const proxy = process.env.ASAAS_PROXY_URL?.replace(/\/$/, "");
+    return proxy || "https://api.asaas.com/v3";
+  }
+  return "https://api-sandbox.asaas.com/v3";
 }
 
 type FetchOpts = Omit<RequestInit, "body"> & { body?: unknown };
@@ -30,11 +35,13 @@ async function asaasFetch<T>(
   init?: FetchOpts
 ): Promise<T> {
   const { body, ...rest } = init ?? {};
+  const useProxy = creds.env === "production" && !!process.env.ASAAS_PROXY_URL;
   const res = await fetch(`${baseUrl(creds.env)}${path}`, {
     ...rest,
     headers: {
       "Content-Type": "application/json",
       access_token: creds.apiKey,
+      ...(useProxy ? { "x-relay-secret": process.env.ASAAS_PROXY_SECRET ?? "" } : {}),
       ...(rest.headers ?? {}),
     },
     body: body ? JSON.stringify(body) : undefined,
