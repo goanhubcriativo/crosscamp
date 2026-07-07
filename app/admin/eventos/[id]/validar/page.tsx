@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { canAccessEvent, getSession } from "@/lib/auth";
-import { initDb, getEventById } from "@/lib/db";
+import { initDb, getEventById, eventStats } from "@/lib/db";
 import AdminHeader from "../../../AdminHeader";
 import Validator from "../../../../components/Validator";
 
@@ -18,6 +18,7 @@ export default async function ValidarPage({
   const event = await getEventById(id);
   if (!event) notFound();
   const role = (await getSession())?.role === "org" ? "org" : "admin";
+  const stats = await eventStats(id);
 
   return (
     <div className="container">
@@ -31,7 +32,11 @@ export default async function ValidarPage({
       <p className="muted">
         {event.name} — escaneie o QR do ingresso ou cole o código.
       </p>
-      <Validator eventId={event.id} />
+      <Validator
+        eventId={event.id}
+        initialEntered={stats.entered}
+        totalTickets={stats.tickets}
+      />
     </div>
   );
 }

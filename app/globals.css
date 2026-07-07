@@ -657,6 +657,103 @@ th {
   white-space: nowrap;
 }
 
+/* Linha de leitura animada dentro da moldura */
+.scanner-frame {
+  overflow: hidden;
+}
+
+.scanner-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--brand-2);
+  box-shadow: 0 0 12px 2px var(--brand-2);
+  animation: scanline 2.2s ease-in-out infinite;
+}
+
+@keyframes scanline {
+  0% {
+    top: 4%;
+  }
+  50% {
+    top: 96%;
+  }
+  100% {
+    top: 4%;
+  }
+}
+
+/* Contador de entradas ao vivo */
+.entry-counter {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.entry-count {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--brand-2);
+  display: inline-block;
+  animation: bump 0.4s ease;
+}
+
+.entry-total {
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+@keyframes bump {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Resultado da validação: aparece com "pop" */
+.result-pop {
+  animation: pop 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.result-icon {
+  animation: pop-icon 0.45s cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+@keyframes pop-icon {
+  0% {
+    transform: scale(0);
+  }
+  60% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 /* ---------- Seletor de quantidade ---------- */
 .qty {
   display: flex;

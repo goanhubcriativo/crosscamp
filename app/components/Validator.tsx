@@ -12,9 +12,19 @@ type Result = {
   checkedInAt?: string | null;
 };
 
-export default function Validator({ eventId }: { eventId: string }) {
+export default function Validator({
+  eventId,
+  initialEntered = 0,
+  totalTickets = 0,
+}: {
+  eventId: string;
+  initialEntered?: number;
+  totalTickets?: number;
+}) {
   const [manual, setManual] = useState("");
   const [result, setResult] = useState<Result | null>(null);
+  const [resultKey, setResultKey] = useState(0);
+  const [entered, setEntered] = useState(initialEntered);
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState("");
@@ -23,9 +33,51 @@ export default function Validator({ eventId }: { eventId: string }) {
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number | null>(null);
   const busyRef = useRef(false);
+  const audioRef = useRef<AudioContext | null>(null);
+
+  // ---- Som (gerado no navegador) ----
+  function ensureAudio() {
+    if (!audioRef.current) {
+      try {
+        const Ctx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext })
+            .webkitAudioContext;
+        audioRef.current = new Ctx();
+      } catch {
+        /* sem áudio */
+      }
+    }
+  }
+  function beep(freq: number, dur: number, type: OscillatorType = "sine", when = 0) {
+    const ctx = audioRef.current;
+    if (!ctx) return;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    o.connect(g);
+    g.connect(ctx.destination);
+    const t = ctx.currentTime + when;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.3, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.start(t);
+    o.stop(t + dur);
+  }
+  const playSuccess = () => {
+    beep(880, 0.12);
+    beep(1320, 0.14, "sine", 0.1);
+  };
+  const playWarn = () => {
+    beep(520, 0.12, "triangle");
+    beep(520, 0.12, "triangle", 0.16);
+  };
+  const playError = () => beep(160, 0.3, "square");
 
   async function validate(token: string) {
     if (!token) return;
+    ensureAudio();
     setLoading(true);
     setResult(null);
     try {
@@ -34,14 +86,28 @@ export default function Validator({ eventId }: { eventId: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, eventId }),
       });
-      const data = await res.json();
+      const data: Result = await res.json();
       setResult(data);
-      // Vibra no celular para dar feedback (quando suportado).
-      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-        navigator.vibrate(data.valid && !data.alreadyChecked ? 120 : [60, 60, 60]);
+      setResultKey((k) => k + 1);
+
+      const vibe = (p: number | number[]) => {
+        if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(p);
+      };
+      if (data.valid && !data.alreadyChecked) {
+        setEntered((n) => n + 1);
+        playSuccess();
+        vibe(120);
+      } else if (data.valid && data.alreadyChecked) {
+        playWarn();
+        vibe([60, 60, 60]);
+      } else {
+        playError();
+        vibe([120, 80, 120]);
       }
     } catch {
       setResult({ valid: false, reason: "Erro de rede." });
+      setResultKey((k) => k + 1);
+      playError();
     } finally {
       setLoading(false);
     }
@@ -59,9 +125,7 @@ export default function Validator({ eventId }: { eventId: string }) {
     const v = videoRef.current;
     const c = canvasRef.current;
     if (!streamRef.current || !v || !c) return;
-
     if (v.readyState === v.HAVE_ENOUGH_DATA && v.videoWidth) {
-      // Reduz a resolução para acelerar a leitura no celular.
       const maxW = 520;
       const scale = Math.min(1, maxW / v.videoWidth);
       const w = Math.round(v.videoWidth * scale);
@@ -90,6 +154,7 @@ export default function Validator({ eventId }: { eventId: string }) {
   async function startScan() {
     setScanError("");
     setResult(null);
+    ensureAudio();
     if (!navigator.mediaDevices?.getUserMedia) {
       setScanError("Câmera não disponível neste navegador. Use a entrada manual.");
       return;
@@ -120,18 +185,21 @@ export default function Validator({ eventId }: { eventId: string }) {
 
   return (
     <div>
+      {/* Contador de entradas ao vivo */}
+      <div className="entry-counter">
+        <span className="kicker kicker--muted">Entradas registradas</span>
+        <span className="entry-count" key={entered}>
+          {entered}
+          {totalTickets > 0 && <span className="entry-total">/{totalTickets}</span>}
+        </span>
+      </div>
+
       <div className="card" style={{ marginTop: 16 }}>
         {!scanning ? (
           <button
             className="btn-block btn-lime"
             onClick={startScan}
-            style={{
-              marginTop: 0,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-            }}
+            style={{ marginTop: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
           >
             <Icon name="camera" size={18} /> Escanear com a câmera
           </button>
@@ -139,7 +207,9 @@ export default function Validator({ eventId }: { eventId: string }) {
           <>
             <div className="scanner">
               <video ref={videoRef} playsInline muted className="scanner-video" />
-              <div className="scanner-frame" />
+              <div className="scanner-frame">
+                <div className="scanner-line" />
+              </div>
               <div className="scanner-hint">Aponte para o QR do ingresso</div>
             </div>
             <button className="btn-ghost btn-block" onClick={stopScan}>
@@ -168,7 +238,8 @@ export default function Validator({ eventId }: { eventId: string }) {
 
       {result && (
         <div
-          className="card center"
+          key={resultKey}
+          className="card center result-pop"
           style={{
             marginTop: 16,
             borderColor: result.valid
@@ -194,7 +265,7 @@ export default function Validator({ eventId }: { eventId: string }) {
               </>
             ) : (
               <>
-                <div style={{ color: "var(--ok)" }}>
+                <div className="result-icon" style={{ color: "var(--ok)" }}>
                   <Icon name="check" size={44} />
                 </div>
                 <h2 style={{ color: "var(--ok)" }}>Entrada liberada</h2>
@@ -203,7 +274,7 @@ export default function Validator({ eventId }: { eventId: string }) {
             )
           ) : (
             <>
-              <div style={{ color: "var(--err)" }}>
+              <div className="result-icon" style={{ color: "var(--err)" }}>
                 <Icon name="block" size={44} />
               </div>
               <h2 style={{ color: "var(--err)" }}>Ingresso inválido</h2>
