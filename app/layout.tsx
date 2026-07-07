@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Anton, Space_Grotesk, Space_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -23,7 +23,19 @@ const mono = Space_Mono({
 
 export const metadata: Metadata = {
   title: "CrossCamp",
-  description: "Plataforma de venda de ingressos para eventos.",
+  description: "Sistema de gestão de campeonatos.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "CrossCamp",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0a0711",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

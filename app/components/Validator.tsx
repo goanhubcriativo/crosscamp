@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import jsQR from "jsqr";
 import { Icon } from "./Icon";
 
 type Result = {
@@ -18,7 +19,9 @@ export default function Validator({ eventId }: { eventId: string }) {
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const rafRef = useRef<number | null>(null);
   const busyRef = useRef(false);
 
   async function validate(token: string) {
@@ -33,6 +36,10 @@ export default function Validator({ eventId }: { eventId: string }) {
       });
       const data = await res.json();
       setResult(data);
+      // Vibra no celular para dar feedback (quando suportado).
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        navigator.vibrate(data.valid && !data.alreadyChecked ? 120 : [60, 60, 60]);
+      }
     } catch {
       setResult({ valid: false, reason: "Erro de rede." });
     } finally {
@@ -42,52 +49,69 @@ export default function Validator({ eventId }: { eventId: string }) {
 
   function stopScan() {
     setScanning(false);
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+  }
+
+  function scanLoop() {
+    const v = videoRef.current;
+    const c = canvasRef.current;
+    if (!streamRef.current || !v || !c) return;
+
+    if (v.readyState === v.HAVE_ENOUGH_DATA && v.videoWidth) {
+      // Reduz a resolução para acelerar a leitura no celular.
+      const maxW = 520;
+      const scale = Math.min(1, maxW / v.videoWidth);
+      const w = Math.round(v.videoWidth * scale);
+      const h = Math.round(v.videoHeight * scale);
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext("2d", { willReadFrequently: true });
+      if (ctx) {
+        ctx.drawImage(v, 0, 0, w, h);
+        const img = ctx.getImageData(0, 0, w, h);
+        const code = jsQR(img.data, w, h, { inversionAttempts: "dontInvert" });
+        if (code && code.data && !busyRef.current) {
+          busyRef.current = true;
+          const raw = code.data;
+          stopScan();
+          validate(raw).finally(() => {
+            busyRef.current = false;
+          });
+          return;
+        }
+      }
+    }
+    rafRef.current = requestAnimationFrame(scanLoop);
   }
 
   async function startScan() {
     setScanError("");
     setResult(null);
-    const Detector = (window as unknown as { BarcodeDetector?: any }).BarcodeDetector;
-    if (!Detector) {
-      setScanError(
-        "Leitor de câmera não suportado neste navegador. Use a entrada manual abaixo."
-      );
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setScanError("Câmera não disponível neste navegador. Use a entrada manual.");
       return;
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" },
+        audio: false,
       });
       streamRef.current = stream;
       setScanning(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+      const v = videoRef.current;
+      if (v) {
+        v.srcObject = stream;
+        v.setAttribute("playsinline", "true");
+        await v.play();
       }
-      const detector = new Detector({ formats: ["qr_code"] });
-
-      const tick = async () => {
-        if (!streamRef.current || !videoRef.current) return;
-        try {
-          const codes = await detector.detect(videoRef.current);
-          if (codes.length && !busyRef.current) {
-            busyRef.current = true;
-            const raw = codes[0].rawValue as string;
-            stopScan();
-            await validate(raw);
-            busyRef.current = false;
-            return;
-          }
-        } catch {
-          /* frame sem código */
-        }
-        requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
+      rafRef.current = requestAnimationFrame(scanLoop);
     } catch {
-      setScanError("Não foi possível acessar a câmera.");
+      setScanError(
+        "Não foi possível acessar a câmera. Autorize o acesso à câmera e tente de novo."
+      );
       stopScan();
     }
   }
@@ -99,33 +123,39 @@ export default function Validator({ eventId }: { eventId: string }) {
       <div className="card" style={{ marginTop: 16 }}>
         {!scanning ? (
           <button
-            className="btn-block"
+            className="btn-block btn-lime"
             onClick={startScan}
-            style={{ marginTop: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+            style={{
+              marginTop: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
           >
-            <Icon name="camera" size={16} /> Escanear QR Code
+            <Icon name="camera" size={18} /> Escanear com a câmera
           </button>
         ) : (
           <>
-            <video
-              ref={videoRef}
-              playsInline
-              muted
-              style={{ width: "100%", borderRadius: 12, background: "#000" }}
-            />
+            <div className="scanner">
+              <video ref={videoRef} playsInline muted className="scanner-video" />
+              <div className="scanner-frame" />
+              <div className="scanner-hint">Aponte para o QR do ingresso</div>
+            </div>
             <button className="btn-ghost btn-block" onClick={stopScan}>
               Parar
             </button>
           </>
         )}
+        <canvas ref={canvasRef} style={{ display: "none" }} />
         {scanError && <div className="error">{scanError}</div>}
 
-        <label htmlFor="manual">Ou cole o código / link do ingresso</label>
+        <label htmlFor="manual">Ou digite/cole o código do ingresso</label>
         <input
           id="manual"
           value={manual}
           onChange={(e) => setManual(e.target.value)}
-          placeholder="ex.: a1b2c3... ou .../ingresso/a1b2c3"
+          placeholder="código do ingresso"
         />
         <button
           className="btn-block"
@@ -180,6 +210,11 @@ export default function Validator({ eventId }: { eventId: string }) {
               <p className="muted">{result.reason}</p>
               {result.name && <p style={{ fontWeight: 600 }}>{result.name}</p>}
             </>
+          )}
+          {!scanning && (
+            <button className="btn-block btn-lime" onClick={startScan} style={{ marginTop: 14 }}>
+              Escanear o próximo
+            </button>
           )}
         </div>
       )}
