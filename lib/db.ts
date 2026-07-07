@@ -1,23 +1,32 @@
-import { createClient, type Client } from "@libsql/client";
+import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import { config, brand } from "./config";
 
-let _client: Client | null = null;
+let _sql: NeonQueryFunction<false, false> | null = null;
 
-export function db(): Client {
-  if (!_client) {
-    _client = createClient({
-      url: config.db.url,
-      authToken: config.db.authToken,
-    });
+function sql(): NeonQueryFunction<false, false> {
+  if (!_sql) {
+    if (!config.db.url) {
+      throw new Error("Banco de dados não configurado (DATABASE_URL ausente).");
+    }
+    _sql = neon(config.db.url);
   }
-  return _client;
+  return _sql;
+}
+
+// Executa uma query parametrizada ($1, $2, ...) e retorna as linhas.
+async function q<T = Record<string, unknown>>(
+  text: string,
+  params: unknown[] = []
+): Promise<T[]> {
+  const rows = await sql().query(text, params);
+  return rows as T[];
 }
 
 // Cria as tabelas se ainda não existirem. Idempotente.
 let _inited = false;
 export async function initDb(): Promise<void> {
   if (_inited) return;
-  await db().execute(`
+  await q(`
     CREATE TABLE IF NOT EXISTS events (
       id              TEXT PRIMARY KEY,
       slug            TEXT NOT NULL UNIQUE,
@@ -25,7 +34,7 @@ export async function initDb(): Promise<void> {
       description     TEXT,
       event_date      TEXT,
       location        TEXT,
-      price           REAL NOT NULL,
+      price           DOUBLE PRECISION NOT NULL,
       color_bg        TEXT NOT NULL DEFAULT '#000000',
       color_primary   TEXT NOT NULL DEFAULT '#7D39EB',
       color_accent    TEXT NOT NULL DEFAULT '#C6FF33',
@@ -37,7 +46,7 @@ export async function initDb(): Promise<void> {
       created_at      TEXT NOT NULL
     );
   `);
-  await db().execute(`
+  await q(`
     CREATE TABLE IF NOT EXISTS orders (
       id                TEXT PRIMARY KEY,
       event_id          TEXT NOT NULL,
@@ -45,7 +54,7 @@ export async function initDb(): Promise<void> {
       email             TEXT NOT NULL,
       phone             TEXT,
       cpf               TEXT NOT NULL,
-      amount            REAL NOT NULL,
+      amount            DOUBLE PRECISION NOT NULL,
       status            TEXT NOT NULL DEFAULT 'PENDING',
       asaas_customer_id TEXT,
       asaas_payment_id  TEXT,
@@ -58,12 +67,8 @@ export async function initDb(): Promise<void> {
       paid_at           TEXT
     );
   `);
-  await db().execute(
-    `CREATE INDEX IF NOT EXISTS idx_orders_payment ON orders (asaas_payment_id);`
-  );
-  await db().execute(
-    `CREATE INDEX IF NOT EXISTS idx_orders_event ON orders (event_id);`
-  );
+  await q(`CREATE INDEX IF NOT EXISTS idx_orders_payment ON orders (asaas_payment_id);`);
+  await q(`CREATE INDEX IF NOT EXISTS idx_orders_event ON orders (event_id);`);
   _inited = true;
 }
 
@@ -108,10 +113,6 @@ export type Order = {
   paid_at: string | null;
 };
 
-function cast<T>(row: Record<string, unknown>): T {
-  return row as unknown as T;
-}
-
 // ---------- Eventos ----------
 
 export type EventInput = {
@@ -132,13 +133,13 @@ export type EventInput = {
 };
 
 export async function createEvent(id: string, e: EventInput): Promise<void> {
-  await db().execute({
-    sql: `INSERT INTO events
-            (id, slug, name, description, event_date, location, price,
-             color_bg, color_primary, color_accent, color_text, logo,
-             asaas_api_key, asaas_env, published, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [
+  await q(
+    `INSERT INTO events
+       (id, slug, name, description, event_date, location, price,
+        color_bg, color_primary, color_accent, color_text, logo,
+        asaas_api_key, asaas_env, published, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+    [
       id,
       e.slug,
       e.name,
@@ -155,18 +156,18 @@ export async function createEvent(id: string, e: EventInput): Promise<void> {
       e.asaas_env ?? "sandbox",
       e.published ? 1 : 0,
       new Date().toISOString(),
-    ],
-  });
+    ]
+  );
 }
 
 export async function updateEvent(id: string, e: EventInput): Promise<void> {
-  await db().execute({
-    sql: `UPDATE events SET
-            slug = ?, name = ?, description = ?, event_date = ?, location = ?,
-            price = ?, color_bg = ?, color_primary = ?, color_accent = ?,
-            color_text = ?, logo = ?, asaas_api_key = ?, asaas_env = ?, published = ?
-          WHERE id = ?`,
-    args: [
+  await q(
+    `UPDATE events SET
+       slug=$1, name=$2, description=$3, event_date=$4, location=$5,
+       price=$6, color_bg=$7, color_primary=$8, color_accent=$9,
+       color_text=$10, logo=$11, asaas_api_key=$12, asaas_env=$13, published=$14
+     WHERE id=$15`,
+    [
       e.slug,
       e.name,
       e.description ?? null,
@@ -182,56 +183,48 @@ export async function updateEvent(id: string, e: EventInput): Promise<void> {
       e.asaas_env ?? "sandbox",
       e.published ? 1 : 0,
       id,
-    ],
-  });
+    ]
+  );
 }
 
 export async function getEventBySlug(slug: string): Promise<EventRow | null> {
-  const r = await db().execute({
-    sql: "SELECT * FROM events WHERE slug = ?",
-    args: [slug],
-  });
-  return r.rows.length ? cast<EventRow>(r.rows[0] as Record<string, unknown>) : null;
+  const rows = await q<EventRow>("SELECT * FROM events WHERE slug = $1", [slug]);
+  return rows[0] ?? null;
 }
 
 export async function getEventById(id: string): Promise<EventRow | null> {
-  const r = await db().execute({
-    sql: "SELECT * FROM events WHERE id = ?",
-    args: [id],
-  });
-  return r.rows.length ? cast<EventRow>(r.rows[0] as Record<string, unknown>) : null;
+  const rows = await q<EventRow>("SELECT * FROM events WHERE id = $1", [id]);
+  return rows[0] ?? null;
 }
 
 export async function listEvents(): Promise<EventRow[]> {
-  const r = await db().execute("SELECT * FROM events ORDER BY created_at DESC");
-  return r.rows.map((row) => cast<EventRow>(row as Record<string, unknown>));
+  return q<EventRow>("SELECT * FROM events ORDER BY created_at DESC");
 }
 
 export async function deleteEvent(id: string): Promise<void> {
-  await db().execute({ sql: "DELETE FROM events WHERE id = ?", args: [id] });
+  await q("DELETE FROM events WHERE id = $1", [id]);
 }
 
-// Estatísticas de um evento (pedidos pagos, entradas, arrecadação).
 export async function eventStats(eventId: string): Promise<{
   total: number;
   paid: number;
   checkedIn: number;
   revenue: number;
 }> {
-  const r = await db().execute({
-    sql: `SELECT
-            COUNT(*) AS total,
-            SUM(CASE WHEN status='PAID' THEN 1 ELSE 0 END) AS paid,
-            SUM(CASE WHEN status='PAID' AND checked_in=1 THEN 1 ELSE 0 END) AS checkedIn,
-            SUM(CASE WHEN status='PAID' THEN amount ELSE 0 END) AS revenue
-          FROM orders WHERE event_id = ?`,
-    args: [eventId],
-  });
-  const row = r.rows[0] as Record<string, unknown>;
+  const rows = await q<Record<string, unknown>>(
+    `SELECT
+       COUNT(*) AS total,
+       SUM(CASE WHEN status='PAID' THEN 1 ELSE 0 END) AS paid,
+       SUM(CASE WHEN status='PAID' AND checked_in=1 THEN 1 ELSE 0 END) AS checkedin,
+       SUM(CASE WHEN status='PAID' THEN amount ELSE 0 END) AS revenue
+     FROM orders WHERE event_id = $1`,
+    [eventId]
+  );
+  const row = rows[0] ?? {};
   return {
     total: Number(row.total ?? 0),
     paid: Number(row.paid ?? 0),
-    checkedIn: Number(row.checkedIn ?? 0),
+    checkedIn: Number(row.checkedin ?? 0),
     revenue: Number(row.revenue ?? 0),
   };
 }
@@ -239,33 +232,79 @@ export async function eventStats(eventId: string): Promise<{
 // ---------- Pedidos ----------
 
 export async function getOrder(id: string): Promise<Order | null> {
-  const r = await db().execute({
-    sql: "SELECT * FROM orders WHERE id = ?",
-    args: [id],
-  });
-  return r.rows.length ? cast<Order>(r.rows[0] as Record<string, unknown>) : null;
+  const rows = await q<Order>("SELECT * FROM orders WHERE id = $1", [id]);
+  return rows[0] ?? null;
 }
 
 export async function getOrderByPaymentId(paymentId: string): Promise<Order | null> {
-  const r = await db().execute({
-    sql: "SELECT * FROM orders WHERE asaas_payment_id = ?",
-    args: [paymentId],
-  });
-  return r.rows.length ? cast<Order>(r.rows[0] as Record<string, unknown>) : null;
+  const rows = await q<Order>(
+    "SELECT * FROM orders WHERE asaas_payment_id = $1",
+    [paymentId]
+  );
+  return rows[0] ?? null;
 }
 
 export async function getOrderByToken(token: string): Promise<Order | null> {
-  const r = await db().execute({
-    sql: "SELECT * FROM orders WHERE ticket_token = ?",
-    args: [token],
-  });
-  return r.rows.length ? cast<Order>(r.rows[0] as Record<string, unknown>) : null;
+  const rows = await q<Order>("SELECT * FROM orders WHERE ticket_token = $1", [token]);
+  return rows[0] ?? null;
 }
 
 export async function listOrdersByEvent(eventId: string): Promise<Order[]> {
-  const r = await db().execute({
-    sql: "SELECT * FROM orders WHERE event_id = ? ORDER BY created_at DESC",
-    args: [eventId],
-  });
-  return r.rows.map((row) => cast<Order>(row as Record<string, unknown>));
+  return q<Order>(
+    "SELECT * FROM orders WHERE event_id = $1 ORDER BY created_at DESC",
+    [eventId]
+  );
+}
+
+// ---------- Pedidos: escrita ----------
+
+export async function insertOrder(o: {
+  id: string;
+  event_id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  cpf: string;
+  amount: number;
+  asaas_customer_id: string;
+  asaas_payment_id: string;
+  pix_payload: string;
+  pix_qr_image: string;
+}): Promise<void> {
+  await q(
+    `INSERT INTO orders
+       (id, event_id, name, email, phone, cpf, amount, status,
+        asaas_customer_id, asaas_payment_id, pix_payload, pix_qr_image, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,'PENDING',$8,$9,$10,$11,$12)`,
+    [
+      o.id,
+      o.event_id,
+      o.name,
+      o.email,
+      o.phone,
+      o.cpf,
+      o.amount,
+      o.asaas_customer_id,
+      o.asaas_payment_id,
+      o.pix_payload,
+      o.pix_qr_image,
+      new Date().toISOString(),
+    ]
+  );
+}
+
+export async function markPaidById(orderId: string, token: string): Promise<void> {
+  await q(
+    `UPDATE orders
+       SET status='PAID', ticket_token=$1, paid_at=COALESCE(paid_at,$2)
+     WHERE id=$3`,
+    [token, new Date().toISOString(), orderId]
+  );
+}
+
+export async function registerEntryById(orderId: string): Promise<void> {
+  await q(
+    "UPDATE orders SET checked_in=1, checked_in_at=$1 WHERE id=$2 AND checked_in=0",
+    [new Date().toISOString(), orderId]
+  );
 }

@@ -30,9 +30,15 @@ export default async function EventPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  await initDb();
   const { slug } = await params;
-  const event = await getEventBySlug(slug);
+  let event = null;
+  try {
+    await initDb();
+    event = await getEventBySlug(slug);
+  } catch {
+    // Banco indisponível: trata como evento inexistente (404 limpo).
+    notFound();
+  }
   if (!event || !event.published) notFound();
 
   return (

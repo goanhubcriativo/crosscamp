@@ -3,15 +3,12 @@
 export const config = {
   appUrl: (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, ""),
   db: {
-    // Aceita os nomes padrão e também os injetados pela integração Turso do Vercel.
+    // String de conexão Postgres. O Vercel (Storage → Neon) injeta estes nomes.
     url:
-      process.env.DATABASE_URL ??
-      process.env.TURSO_DATABASE_URL ??
-      "file:local.db",
-    authToken:
-      process.env.DATABASE_AUTH_TOKEN ||
-      process.env.TURSO_AUTH_TOKEN ||
-      undefined,
+      process.env.DATABASE_URL ||
+      process.env.POSTGRES_URL ||
+      process.env.POSTGRES_PRISMA_URL ||
+      "",
   },
   // Token compartilhado dos webhooks do Asaas (o mesmo em todas as contas/eventos).
   asaasWebhookToken: process.env.ASAAS_WEBHOOK_TOKEN ?? "",

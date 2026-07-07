@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, initDb, getEventBySlug } from "@/lib/db";
+import { initDb, getEventBySlug, insertOrder } from "@/lib/db";
 import { newId } from "@/lib/ticket";
 import { createCustomer, createPixPayment, getPixQrCode } from "@/lib/asaas";
 
@@ -70,26 +70,18 @@ export async function POST(req: NextRequest) {
 
     const qr = await getPixQrCode(creds, payment.id);
 
-    const now = new Date().toISOString();
-    await db().execute({
-      sql: `INSERT INTO orders
-              (id, event_id, name, email, phone, cpf, amount, status,
-               asaas_customer_id, asaas_payment_id, pix_payload, pix_qr_image, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, ?, ?, ?)`,
-      args: [
-        orderId,
-        event.id,
-        name,
-        email,
-        phone || null,
-        cpf,
-        event.price,
-        customer.id,
-        payment.id,
-        qr.payload,
-        qr.encodedImage,
-        now,
-      ],
+    await insertOrder({
+      id: orderId,
+      event_id: event.id,
+      name,
+      email,
+      phone: phone || null,
+      cpf,
+      amount: event.price,
+      asaas_customer_id: customer.id,
+      asaas_payment_id: payment.id,
+      pix_payload: qr.payload,
+      pix_qr_image: qr.encodedImage,
     });
 
     return NextResponse.json({ orderId });

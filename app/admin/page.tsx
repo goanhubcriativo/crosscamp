@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { isAuthenticated } from "@/lib/auth";
-import { initDb, listEvents, eventStats } from "@/lib/db";
+import { initDb, listEvents, eventStats, type EventRow } from "@/lib/db";
 import { config, formatBRL } from "@/lib/config";
 import AdminHeader from "./AdminHeader";
 
@@ -9,9 +9,35 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   if (!(await isAuthenticated())) redirect("/admin/login");
-  await initDb();
-  const events = await listEvents();
-  const stats = await Promise.all(events.map((e) => eventStats(e.id)));
+
+  let events: EventRow[] = [];
+  let dbError = false;
+  try {
+    await initDb();
+    events = await listEvents();
+  } catch {
+    dbError = true;
+    events = [];
+  }
+  const stats = await Promise.all(
+    events.map((e) => eventStats(e.id).catch(() => ({ total: 0, paid: 0, checkedIn: 0, revenue: 0 })))
+  );
+
+  if (dbError) {
+    return (
+      <div className="container">
+        <AdminHeader />
+        <div className="card center" style={{ padding: 40 }}>
+          <div style={{ fontSize: "2rem" }}>🗄️</div>
+          <h1>Banco de dados não conectado</h1>
+          <p className="muted">
+            O painel precisa de um banco para salvar eventos e vendas. Assim que
+            o banco (Turso) for configurado, esta tela funciona normalmente.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container container-wide">
