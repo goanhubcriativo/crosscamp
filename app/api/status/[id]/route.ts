@@ -4,8 +4,7 @@ import { getPayment, isPaidStatus } from "@/lib/asaas";
 import { markOrderPaid } from "@/lib/ticket";
 
 export const runtime = "nodejs";
-// Executa em São Paulo (consulta o Asaas a partir de um IP brasileiro).
-export const preferredRegion = "gru1";
+export const maxDuration = 60;
 
 // Polling da página do pedido: lê o status local e reconcilia com o Asaas
 // (usando a chave do evento) caso o webhook ainda não tenha chegado.
