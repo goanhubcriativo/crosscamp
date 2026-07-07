@@ -4,6 +4,8 @@ import { newId } from "@/lib/ticket";
 import { createCustomer, createPixPayment, getPixQrCode } from "@/lib/asaas";
 
 export const runtime = "nodejs";
+// Executa em São Paulo para que as chamadas ao Asaas saiam de um IP brasileiro.
+export const preferredRegion = "gru1";
 
 const onlyDigits = (s: string) => s.replace(/\D/g, "");
 
